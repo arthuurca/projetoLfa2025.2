@@ -1,10 +1,14 @@
 import tkinter as tk
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog # Adicionado filedialog
 import math
+import os # Adicionado os
+import xml.etree.ElementTree as ET # Adicionado ET para JFF
+from xml.dom import minidom # Adicionado minidom para JFF
+from PIL import ImageGrab # Adicionado ImageGrab para JPG
+
 from automato.automato_finito import AFD, AFN
 from automato.automato_pilha import AutomatoPilha
-# --- NOVAS IMPORTAÇÕES ---
 from automato.maquinas_moore_mealy import MaquinaMoore, MaquinaMealy
 from automato.maquina_turing import MaquinaTuring
 from automato import EPSILON
@@ -12,7 +16,6 @@ from simulador.simulador_passos import (
     SimuladorAFD, SimuladorAFN, SimuladorAP,
     SimuladorMoore, SimuladorMealy, SimuladorMT
 )
-# --- FIM DAS NOVAS IMPORTAÇÕES ---
 from collections import defaultdict
 
 STATE_RADIUS = 25
@@ -98,7 +101,7 @@ class TelaPrincipal:
         tipo_menu.pack(side="left", padx=5)
 
         self.btn_limpar = ctk.CTkButton(top_bar,
-                                        text="Limpar Tudo",
+                                        text="Limpar Tudo 💀",
                                         command=self.limpar_tela,
                                         width=100,
                                         fg_color=self.cor_destrutiva_fg,
@@ -112,6 +115,18 @@ class TelaPrincipal:
                                               **self.style_top_widget)
         self.btn_theme_toggle.pack(side="left", padx=10)
         self.update_theme_button_text()
+
+        # --- NOVO: Botões de Exportação ---
+        self.btn_export_jff = ctk.CTkButton(top_bar, text="Salvar JFF",
+                                            command=self.exportar_para_jff, width=110,
+                                            **self.style_top_widget)
+        self.btn_export_jff.pack(side="left", padx=(20, 5)) # Adiciona espaço antes
+
+        self.btn_export_jpg = ctk.CTkButton(top_bar, text="Salvar JPG",
+                                            command=self.exportar_para_jpg, width=110,
+                                            **self.style_top_widget)
+        self.btn_export_jpg.pack(side="left", padx=5)
+        # --- FIM DA ADIÇÃO DOS BOTÕES ---
 
         if self.voltar_menu_callback:
             self.btn_voltar = ctk.CTkButton(
@@ -133,53 +148,19 @@ class TelaPrincipal:
         tool_bar = ctk.CTkFrame(tool_bar_container)
         tool_bar.pack(anchor="center")
 
-        btn_inicial = ctk.CTkButton(tool_bar, text="► Inicial",
-                                      command=lambda mid="INICIAL": self.set_active_mode(mid),
-                                      fg_color=self.cor_ferramenta_fg,
-                                      hover_color=self.cor_ferramenta_hover,
-                                      **self.style_tool_button)
-        btn_inicial.pack(side="left", padx=5, pady=5)
-        self.tool_buttons["INICIAL"] = btn_inicial
-
-        btn_final = ctk.CTkButton(tool_bar, text="◎ Final",
-                                    command=lambda mid="FINAL": self.set_active_mode(mid),
-                                    fg_color=self.cor_ferramenta_fg,
-                                    hover_color=self.cor_ferramenta_hover,
-                                    **self.style_tool_button)
-        btn_final.pack(side="left", padx=5, pady=5)
-        self.tool_buttons["FINAL"] = btn_final
-
-        btn_estado = ctk.CTkButton(tool_bar, text="○ Estado",
-                                     command=lambda mid="ESTADO": self.set_active_mode(mid),
-                                     fg_color=self.cor_ferramenta_fg,
-                                     hover_color=self.cor_ferramenta_hover,
-                                     **self.style_tool_button)
-        btn_estado.pack(side="left", padx=5, pady=5)
-        self.tool_buttons["ESTADO"] = btn_estado
-
-        btn_deletar = ctk.CTkButton(tool_bar, text="❌ Deletar",
-                                      command=lambda mid="DELETAR": self.set_active_mode(mid),
-                                      fg_color=self.cor_destrutiva_fg,
-                                      hover_color=self.cor_destrutiva_hover,
-                                      **self.style_tool_button)
-        btn_deletar.pack(side="left", padx=5, pady=5)
-        self.tool_buttons["DELETAR"] = btn_deletar
-
-        btn_mover = ctk.CTkButton(tool_bar, text="✥ Mover/Editar",
-                                    command=lambda mid="MOVER": self.set_active_mode(mid),
-                                    fg_color=self.cor_ferramenta_fg,
-                                    hover_color=self.cor_ferramenta_hover,
-                                    **self.style_tool_button)
-        btn_mover.pack(side="left", padx=5, pady=5)
-        self.tool_buttons["MOVER"] = btn_mover
-
-        btn_transicao = ctk.CTkButton(tool_bar, text="→ Transição",
-                                        command=lambda mid="TRANSICAO": self.set_active_mode(mid),
-                                        fg_color=self.cor_ferramenta_fg,
-                                        hover_color=self.cor_ferramenta_hover,
-                                        **self.style_tool_button)
-        btn_transicao.pack(side="left", padx=5, pady=5)
-        self.tool_buttons["TRANSICAO"] = btn_transicao
+        # (Botões de Ferramentas: Inicial, Final, Estado, Deletar, Mover, Transição - código omitido por brevidade, permanece igual)
+        btn_inicial = ctk.CTkButton(tool_bar, text="► Inicial", command=lambda mid="INICIAL": self.set_active_mode(mid), fg_color=self.cor_ferramenta_fg, hover_color=self.cor_ferramenta_hover, **self.style_tool_button)
+        btn_inicial.pack(side="left", padx=5, pady=5); self.tool_buttons["INICIAL"] = btn_inicial
+        btn_final = ctk.CTkButton(tool_bar, text="◎ Final", command=lambda mid="FINAL": self.set_active_mode(mid), fg_color=self.cor_ferramenta_fg, hover_color=self.cor_ferramenta_hover, **self.style_tool_button)
+        btn_final.pack(side="left", padx=5, pady=5); self.tool_buttons["FINAL"] = btn_final
+        btn_estado = ctk.CTkButton(tool_bar, text="○ Estado", command=lambda mid="ESTADO": self.set_active_mode(mid), fg_color=self.cor_ferramenta_fg, hover_color=self.cor_ferramenta_hover, **self.style_tool_button)
+        btn_estado.pack(side="left", padx=5, pady=5); self.tool_buttons["ESTADO"] = btn_estado
+        btn_deletar = ctk.CTkButton(tool_bar, text="❌ Deletar", command=lambda mid="DELETAR": self.set_active_mode(mid), fg_color=self.cor_destrutiva_fg, hover_color=self.cor_destrutiva_hover, **self.style_tool_button)
+        btn_deletar.pack(side="left", padx=5, pady=5); self.tool_buttons["DELETAR"] = btn_deletar
+        btn_mover = ctk.CTkButton(tool_bar, text="✥ Mover/Editar", command=lambda mid="MOVER": self.set_active_mode(mid), fg_color=self.cor_ferramenta_fg, hover_color=self.cor_ferramenta_hover, **self.style_tool_button)
+        btn_mover.pack(side="left", padx=5, pady=5); self.tool_buttons["MOVER"] = btn_mover
+        btn_transicao = ctk.CTkButton(tool_bar, text="→ Transição", command=lambda mid="TRANSICAO": self.set_active_mode(mid), fg_color=self.cor_ferramenta_fg, hover_color=self.cor_ferramenta_hover, **self.style_tool_button)
+        btn_transicao.pack(side="left", padx=5, pady=5); self.tool_buttons["TRANSICAO"] = btn_transicao
 
 
         # --- 3. Canvas ---
@@ -248,6 +229,7 @@ class TelaPrincipal:
         self._atualizar_widgets_extra_info()
 
     # --- FUNÇÕES DE CONTROLE DE MODO ---
+    # ... (set_active_mode, update_button_styles, update_cursor_and_status - Omitido por brevidade, permanecem iguais) ...
     def set_active_mode(self, mode_id):
         if mode_id == self.current_mode: self.current_mode = "MOVER"
         else: self.current_mode = mode_id
@@ -272,7 +254,9 @@ class TelaPrincipal:
         self.master.config(cursor=cursor_map.get(mode, "arrow"))
         self.origem_transicao = None
 
+
     # --- FUNÇÕES DE TEMA ---
+    # ... (toggle_theme, voltar_ao_menu, update_theme_button_text - Omitido por brevidade, permanecem iguais) ...
     def toggle_theme(self):
         current_mode = ctk.get_appearance_mode()
         new_mode = "Light" if current_mode == "Dark" else "Dark"
@@ -313,8 +297,9 @@ class TelaPrincipal:
             text_color=btn_text_color
         )
 
-    # --- FUNÇÕES DE UI ---
 
+    # --- FUNÇÕES DE UI ---
+    # ... (_atualizar_widgets_extra_info, mudar_tipo_automato, limpar_tela - Omitido por brevidade, permanecem iguais) ...
     def _atualizar_widgets_extra_info(self):
         tipo = self.tipo_automato.get()
         self.lbl_output_tag.grid_remove()
@@ -355,7 +340,8 @@ class TelaPrincipal:
         self._atualizar_widgets_extra_info()
 
 
-    # <-- ATUALIZAÇÃO: Verificações messagebox.askyesno removidas -->
+    # --- AÇÕES DO CANVAS (clique_canvas, duplo_clique_canvas, etc.) ---
+    # ... (Omitido por brevidade, permanecem iguais com a verificação de deleção removida) ...
     def clique_canvas(self, event):
         mode = self.current_mode
         estado_clicado = self._get_estado_em(event.x, event.y)
@@ -387,25 +373,19 @@ class TelaPrincipal:
             elif mode == "FINAL": self.automato.alternar_estado_final(estado_clicado.nome)
             elif mode == "MOVER": self.estado_movendo = estado_clicado
             elif mode == "DELETAR":
-                # --- REMOVIDO: if messagebox.askyesno(...) ---
                 nome_a_deletar = estado_clicado.nome
                 self.automato.deletar_estado(nome_a_deletar)
                 self.positions.pop(nome_a_deletar, None)
-                # --- FIM DA REMOÇÃO ---
             else: pass
         elif transicao_clicada and mode == "DELETAR":
             origem, destino = transicao_clicada
-            # --- REMOVIDO: if messagebox.askyesno(...) ---
             if hasattr(self.automato, 'deletar_transicoes_entre'):
                 self.automato.deletar_transicoes_entre(origem, destino)
             else: print(f"Aviso: Método 'deletar_transicoes_entre' não implementado para {type(self.automato)}")
-            # --- FIM DA REMOÇÃO ---
         elif not estado_clicado and not transicao_clicada:
             self.origem_transicao = None
 
         self.desenhar_automato()
-    # <-- FIM DA ATUALIZAÇÃO -->
-
 
     def duplo_clique_canvas(self, event):
         mode = self.current_mode
@@ -433,8 +413,8 @@ class TelaPrincipal:
             origem, destino = transicao_clicada
             self._editar_label_transicao(origem, destino)
 
-
     def _editar_label_transicao(self, origem, destino):
+        # ... (código existente) ...
         tipo = self.tipo_automato.get()
         if tipo in ["AP", "Mealy", "Turing"]:
             messagebox.showinfo("Editar Transição", f"Edição de transições {tipo} não implementada com duplo clique. Use Deletar e Criar.", parent=self.master)
@@ -462,6 +442,7 @@ class TelaPrincipal:
 
 
     def _criar_transicao(self, origem, destino):
+        # ... (código existente) ...
         tipo = self.tipo_automato.get()
 
         if tipo in ["AFD", "AFN", "Moore"]:
@@ -495,7 +476,7 @@ class TelaPrincipal:
 
         self.desenhar_automato()
 
-    # --- Funções de Arrastar/Soltar ---
+
     def arrastar_canvas(self, event):
         if self.estado_movendo and self.estado_movendo.nome in self.positions:
             self.positions[self.estado_movendo.nome] = (event.x, event.y)
@@ -503,7 +484,6 @@ class TelaPrincipal:
     def soltar_canvas(self, event):
         self.estado_movendo = None
 
-    # --- Funções _get ---
     def _get_estado_em(self, x, y):
         for nome, (sx, sy) in self.positions.items():
             if (sx - x)**2 + (sy - y)**2 <= (STATE_RADIUS + 2)**2:
@@ -521,8 +501,9 @@ class TelaPrincipal:
                         if len(parts) == 3: return parts[1], parts[2]
         return None
 
-    # --- FUNÇÕES DE DESENHO ---
 
+    # --- FUNÇÕES DE DESENHO ---
+    # ... (desenhar_automato, _desenhar_linha_curva, _agrupar_transicoes - Omitido por brevidade, permanecem iguais) ...
     def desenhar_automato(self, estados_ativos=None, transicoes_ativas=None, extra_info_str=None):
         try:
             self.canvas.delete("all")
@@ -623,6 +604,7 @@ class TelaPrincipal:
             print(f"Erro crítico ao desenhar automato: {e}")
 
     def _desenhar_linha_curva(self, origem, destino, label, fator, cor_linha, largura, label_tag):
+        # ... (código existente) ...
         if origem.nome not in self.positions or destino.nome not in self.positions: return
         x1, y1 = self.positions[origem.nome]
         x2, y2 = self.positions[destino.nome]
@@ -648,8 +630,8 @@ class TelaPrincipal:
         bbox = self.canvas.bbox(text_id)
         if bbox: self.label_hitboxes[label_tag] = bbox
 
-
     def _agrupar_transicoes(self):
+        # ... (código existente) ...
         agrupado = defaultdict(lambda: defaultdict(set))
         if not hasattr(self.automato, 'transicoes'): return agrupado
         trans_dict = self.automato.transicoes
@@ -682,7 +664,7 @@ class TelaPrincipal:
 
 
     # --- FUNÇÕES DE SIMULAÇÃO ---
-
+    # ... (iniciar_simulacao, parar_simulacao, executar_proximo_passo - Omitido por brevidade, permanecem iguais) ...
     def iniciar_simulacao(self):
         self.parar_simulacao(final_state=False)
         cadeia = self.entrada_cadeia.get()
@@ -731,6 +713,7 @@ class TelaPrincipal:
             self.desenhar_automato()
 
     def executar_proximo_passo(self):
+        # ... (código existente) ...
         if not self.simulador: return
         passo_info = self.simulador.proximo_passo()
         tipo = self.tipo_automato.get()
@@ -802,10 +785,157 @@ class TelaPrincipal:
             messagebox.showerror("Erro", passo_info["mensagem"])
             self.parar_simulacao()
 
-# --- CLASSES DE DIÁLOGO (ATUALIZADAS COM ESTILO) ---
 
+    # --- NOVOS MÉTODOS DE EXPORTAÇÃO ---
+    def exportar_para_jpg(self):
+        """Salva a visualização atual do canvas como um arquivo JPG."""
+        if not self.automato or not self.automato.estados:
+             messagebox.showwarning("Exportar JPG", "Não há autômato para exportar.", parent=self.master)
+             return
+
+        try:
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".jpg",
+                filetypes=[("JPEG files", "*.jpg"), ("All files", "*.*")],
+                title="Salvar Autômato como JPG",
+                parent=self.master
+            )
+            if not filepath: return
+
+            x = self.canvas.winfo_rootx()
+            y = self.canvas.winfo_rooty()
+            x1 = x + self.canvas.winfo_width()
+            y1 = y + self.canvas.winfo_height()
+            margin = 2
+            img = ImageGrab.grab(bbox=(x + margin, y + margin, x1 - margin, y1 - margin))
+            img.save(filepath, "JPEG")
+            messagebox.showinfo("Exportar JPG", f"Autômato salvo como JPG em:\n{filepath}", parent=self.master)
+        except Exception as e:
+            messagebox.showerror("Erro ao Exportar JPG", f"Ocorreu um erro:\n{e}", parent=self.master)
+            print(f"Erro ao exportar JPG: {e}")
+
+    def exportar_para_jff(self):
+        """Exporta o autômato atual para o formato .jff do JFLAP."""
+        if not self.automato or not self.automato.estados:
+            messagebox.showwarning("Exportar JFF", "Não há autômato para exportar.", parent=self.master)
+            return
+
+        automato_tipo = self.tipo_automato.get().lower()
+        jflap_type = "fa" # Padrão para AFD/AFN
+        if automato_tipo == "ap": jflap_type = "pda"
+        elif automato_tipo == "turing": jflap_type = "turing"
+        elif automato_tipo in ["moore", "mealy"]: jflap_type = "mealy"
+
+        try:
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".jff",
+                filetypes=[("JFLAP files", "*.jff"), ("All files", "*.*")],
+                title="Salvar Autômato como JFF",
+                parent=self.master
+            )
+            if not filepath: return
+
+            root = ET.Element("structure")
+            ET.SubElement(root, "type").text = jflap_type
+            automaton_element = ET.SubElement(root, "automaton")
+            state_to_id = {name: str(i) for i, name in enumerate(self.automato.estados.keys())}
+
+            for name, estado in self.automato.estados.items():
+                state_id = state_to_id[name]
+                state_element = ET.SubElement(automaton_element, "state", id=state_id, name=name)
+                x_pos, y_pos = self.positions.get(name, (50.0 + int(state_id)*80, 50.0)) # Posição padrão com espaçamento
+                ET.SubElement(state_element, "x").text = str(float(x_pos))
+                ET.SubElement(state_element, "y").text = str(float(y_pos))
+                if estado.is_inicial:
+                    ET.SubElement(state_element, "initial")
+                if estado.is_final:
+                    ET.SubElement(state_element, "final")
+                if automato_tipo == "moore" and hasattr(estado, 'output') and estado.output:
+                     ET.SubElement(state_element, "output").text = estado.output
+
+            # Transições (Adaptado para cada tipo)
+            if jflap_type == "fa":
+                for (origem, simbolo), destinos in self.automato.transicoes.items():
+                    origem_id = state_to_id.get(origem)
+                    if origem_id is None: continue
+                    destinos_set = destinos if isinstance(destinos, set) else {destinos}
+                    for destino in destinos_set:
+                        destino_id = state_to_id.get(destino)
+                        if destino_id is None: continue
+                        trans_element = ET.SubElement(automaton_element, "transition")
+                        ET.SubElement(trans_element, "from").text = origem_id
+                        ET.SubElement(trans_element, "to").text = destino_id
+                        read_element = ET.SubElement(trans_element, "read")
+                        if simbolo != EPSILON: read_element.text = simbolo
+            elif jflap_type == "pda":
+                 for (origem, s_in, s_pop), destinos_push in self.automato.transicoes.items():
+                     origem_id = state_to_id.get(origem)
+                     if origem_id is None: continue
+                     for destino, s_push in destinos_push:
+                         destino_id = state_to_id.get(destino)
+                         if destino_id is None: continue
+                         trans_element = ET.SubElement(automaton_element, "transition")
+                         ET.SubElement(trans_element, "from").text = origem_id
+                         ET.SubElement(trans_element, "to").text = destino_id
+                         read_element = ET.SubElement(trans_element, "read")
+                         if s_in != EPSILON: read_element.text = s_in
+                         pop_element = ET.SubElement(trans_element, "pop")
+                         if s_pop != EPSILON: pop_element.text = s_pop
+                         push_element = ET.SubElement(trans_element, "push")
+                         if s_push != EPSILON: push_element.text = s_push
+            elif jflap_type == "turing":
+                 simbolo_branco_automato = getattr(self.automato, 'simbolo_branco', 'B') # Pega o símbolo branco
+                 for (origem, lido), (destino, escrito, direcao) in self.automato.transicoes.items():
+                     origem_id = state_to_id.get(origem)
+                     destino_id = state_to_id.get(destino)
+                     if origem_id is None or destino_id is None: continue
+                     trans_element = ET.SubElement(automaton_element, "transition")
+                     ET.SubElement(trans_element, "from").text = origem_id
+                     ET.SubElement(trans_element, "to").text = destino_id
+                     read_element = ET.SubElement(trans_element, "read")
+                     # JFLAP usa tag vazia para símbolo branco na leitura
+                     if lido != simbolo_branco_automato: read_element.text = lido
+                     write_element = ET.SubElement(trans_element, "write")
+                     # JFLAP usa tag vazia para símbolo branco na escrita
+                     if escrito != simbolo_branco_automato: write_element.text = escrito
+                     move_element = ET.SubElement(trans_element, "move")
+                     move_element.text = direcao # 'R' ou 'L'
+            elif jflap_type == "mealy":
+                 for (origem, simbolo), (destino, output) in self.automato.transicoes.items():
+                    origem_id = state_to_id.get(origem)
+                    destino_id = state_to_id.get(destino)
+                    if origem_id is None or destino_id is None: continue
+                    trans_element = ET.SubElement(automaton_element, "transition")
+                    ET.SubElement(trans_element, "from").text = origem_id
+                    ET.SubElement(trans_element, "to").text = destino_id
+                    read_element = ET.SubElement(trans_element, "read")
+                    if simbolo != EPSILON: read_element.text = simbolo
+                    output_element = ET.SubElement(trans_element, "transout")
+                    if output != EPSILON: output_element.text = output
+
+            xml_str = ET.tostring(root, encoding='unicode')
+            dom = minidom.parseString(xml_str)
+            pretty_xml_str = dom.toprettyxml(indent="  ")
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n')
+                # Escreve a partir da segunda linha para evitar dupla declaração XML
+                f.write(pretty_xml_str.split('\n', 1)[1])
+
+            messagebox.showinfo("Exportar JFF", f"Autômato salvo como JFF em:\n{filepath}", parent=self.master)
+
+        except Exception as e:
+            messagebox.showerror("Erro ao Exportar JFF", f"Ocorreu um erro:\n{e}", parent=self.master)
+            print(f"Erro ao exportar JFF: {e}")
+
+    # --- FIM DOS NOVOS MÉTODOS ---
+
+
+    # --- CLASSES DE DIÁLOGO ---
+    # ... (TransicaoPilhaDialog, TransicaoMealyDialog, TransicaoTuringDialog - Omitido por brevidade, permanecem iguais com a correção do 'ok' do Mealy) ...
 class TransicaoPilhaDialog(ctk.CTkToplevel):
     def __init__(self, parent, origem, destino, style_dict=None):
+        # ... (código existente) ...
         super().__init__(parent)
         self.title(f"Transição AP")
         self.resultado = None
@@ -844,6 +974,7 @@ class TransicaoPilhaDialog(ctk.CTkToplevel):
 
 class TransicaoMealyDialog(ctk.CTkToplevel):
     def __init__(self, parent, origem, destino, style_dict=None):
+        # ... (código existente) ...
         super().__init__(parent)
         self.title(f"Transição Mealy")
         self.resultado = None
@@ -867,15 +998,22 @@ class TransicaoMealyDialog(ctk.CTkToplevel):
         self.grab_set()
         self.e_simbolo.focus()
 
+    # --- CORRIGIDO para evitar UnboundLocalError ---
     def ok(self):
+        simbolo_input = self.e_simbolo.get()
+        output_input = self.e_output.get()
+        simbolo_final = simbolo_input if simbolo_input else 'e'
+        output_final = output_input if output_input else 'e'
         self.resultado = {
-            'simbolo': (s := self.e_simbolo.get()) if s else 'e',
-            'output': (o := self.e_output.get()) if o else 'e'
+            'simbolo': simbolo_final,
+            'output': output_final
         }
         self.destroy()
+    # --- FIM DA CORREÇÃO ---
 
 class TransicaoTuringDialog(ctk.CTkToplevel):
     def __init__(self, parent, origem, destino, style_dict=None):
+        # ... (código existente) ...
         super().__init__(parent)
         self.title(f"Transição Turing")
         self.resultado = None
