@@ -5,7 +5,7 @@ import math
 import os # Adicionado os
 import xml.etree.ElementTree as ET # Adicionado ET para JFF
 from xml.dom import minidom # Adicionado minidom para JFF
-from PIL import ImageGrab # Adicionado ImageGrab para JPG
+from PIL import ImageGrab, Image # Adicionado ImageGrab e Image para JPG
 
 from automato.automato_finito import AFD, AFN
 from automato.automato_pilha import AutomatoPilha
@@ -101,7 +101,7 @@ class TelaPrincipal:
         tipo_menu.pack(side="left", padx=5)
 
         self.btn_limpar = ctk.CTkButton(top_bar,
-                                        text="Limpar Tudo 💀",
+                                        text="💀 Limpar Tudo",
                                         command=self.limpar_tela,
                                         width=100,
                                         fg_color=self.cor_destrutiva_fg,
@@ -116,17 +116,20 @@ class TelaPrincipal:
         self.btn_theme_toggle.pack(side="left", padx=10)
         self.update_theme_button_text()
 
-        # --- NOVO: Botões de Exportação ---
-        self.btn_export_jff = ctk.CTkButton(top_bar, text="Salvar JFF",
-                                            command=self.exportar_para_jff, width=110,
+        self.btn_export_jff = ctk.CTkButton(top_bar, text="💾 Salvar JFF",
+                                            command=self.exportar_para_jff, width=120,
+                                            fg_color=self.cor_ferramenta_fg,
+                                            hover_color=self.cor_ferramenta_hover,
                                             **self.style_top_widget)
-        self.btn_export_jff.pack(side="left", padx=(20, 5)) # Adiciona espaço antes
+        self.btn_export_jff.pack(side="left", padx=(20, 5))
 
-        self.btn_export_jpg = ctk.CTkButton(top_bar, text="Salvar JPG",
-                                            command=self.exportar_para_jpg, width=110,
+        self.btn_export_jpg = ctk.CTkButton(top_bar, text="🖼️ Salvar JPG",
+                                            command=self.exportar_para_jpg, width=120,
+                                            fg_color=self.cor_ferramenta_fg,
+                                            hover_color=self.cor_ferramenta_hover,
                                             **self.style_top_widget)
         self.btn_export_jpg.pack(side="left", padx=5)
-        # --- FIM DA ADIÇÃO DOS BOTÕES ---
+
 
         if self.voltar_menu_callback:
             self.btn_voltar = ctk.CTkButton(
@@ -148,7 +151,6 @@ class TelaPrincipal:
         tool_bar = ctk.CTkFrame(tool_bar_container)
         tool_bar.pack(anchor="center")
 
-        # (Botões de Ferramentas: Inicial, Final, Estado, Deletar, Mover, Transição - código omitido por brevidade, permanece igual)
         btn_inicial = ctk.CTkButton(tool_bar, text="► Inicial", command=lambda mid="INICIAL": self.set_active_mode(mid), fg_color=self.cor_ferramenta_fg, hover_color=self.cor_ferramenta_hover, **self.style_tool_button)
         btn_inicial.pack(side="left", padx=5, pady=5); self.tool_buttons["INICIAL"] = btn_inicial
         btn_final = ctk.CTkButton(tool_bar, text="◎ Final", command=lambda mid="FINAL": self.set_active_mode(mid), fg_color=self.cor_ferramenta_fg, hover_color=self.cor_ferramenta_hover, **self.style_tool_button)
@@ -208,14 +210,17 @@ class TelaPrincipal:
         cadeia_status_frame = ctk.CTkFrame(frame_simulacao, fg_color="transparent")
         cadeia_status_frame.grid(row=0, column=4, padx=10, pady=10, sticky="w")
 
-        self.lbl_cadeia_consumida = ctk.CTkLabel(cadeia_status_frame, text="", text_color=self.cor_consumida, font=ctk.CTkFont(size=18, weight="bold"))
+        # --- ATUALIZAÇÃO: Tamanho da fonte aumentado para 22 ---
+        self.lbl_cadeia_consumida = ctk.CTkLabel(cadeia_status_frame, text="", text_color=self.cor_consumida, font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_cadeia_consumida.pack(side="left")
-
-        self.lbl_cadeia_restante = ctk.CTkLabel(cadeia_status_frame, text="", font=ctk.CTkFont(size=18, weight="bold"))
+        self.lbl_cadeia_restante = ctk.CTkLabel(cadeia_status_frame, text="", font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_cadeia_restante.pack(side="left")
 
-        self.lbl_status_simulacao = ctk.CTkLabel(frame_simulacao, text="Status: Aguardando", font=ctk.CTkFont(weight="bold"))
+        # --- ATUALIZAÇÃO: Tamanho da fonte aumentado para 14 ---
+        self.lbl_status_simulacao = ctk.CTkLabel(frame_simulacao, text="Status: Aguardando", font=ctk.CTkFont(size=20, weight="bold"))
         self.lbl_status_simulacao.grid(row=0, column=5, padx=10, pady=10, sticky="e")
+        # --- FIM DAS ATUALIZAÇÕES ---
+
 
         # --- Bindings e Inicialização ---
         self.canvas.bind("<Button-1>", self.clique_canvas)
@@ -229,7 +234,7 @@ class TelaPrincipal:
         self._atualizar_widgets_extra_info()
 
     # --- FUNÇÕES DE CONTROLE DE MODO ---
-    # ... (set_active_mode, update_button_styles, update_cursor_and_status - Omitido por brevidade, permanecem iguais) ...
+    # ... (set_active_mode, update_button_styles, update_cursor_and_status - Omitido por brevidade) ...
     def set_active_mode(self, mode_id):
         if mode_id == self.current_mode: self.current_mode = "MOVER"
         else: self.current_mode = mode_id
@@ -256,7 +261,7 @@ class TelaPrincipal:
 
 
     # --- FUNÇÕES DE TEMA ---
-    # ... (toggle_theme, voltar_ao_menu, update_theme_button_text - Omitido por brevidade, permanecem iguais) ...
+    # ... (toggle_theme, voltar_ao_menu, update_theme_button_text - Omitido por brevidade) ...
     def toggle_theme(self):
         current_mode = ctk.get_appearance_mode()
         new_mode = "Light" if current_mode == "Dark" else "Dark"
@@ -280,12 +285,12 @@ class TelaPrincipal:
         current_mode = ctk.get_appearance_mode()
 
         if current_mode == "Dark":
-            button_text = "Modo Claro ☀️"
+            button_text = "☀️Modo Claro"
             btn_fg_color = "#F0F0F0"
             btn_hover_color = "#D5D5D5"
             btn_text_color = "#1A1A1A"
         else:
-            button_text = "Modo Escuro 🌙"
+            button_text = "🌙Modo Escuro"
             btn_fg_color = "#333333"
             btn_hover_color = "#4A4A4A"
             btn_text_color = "#E0E0E0"
@@ -299,7 +304,7 @@ class TelaPrincipal:
 
 
     # --- FUNÇÕES DE UI ---
-    # ... (_atualizar_widgets_extra_info, mudar_tipo_automato, limpar_tela - Omitido por brevidade, permanecem iguais) ...
+    # ... (_atualizar_widgets_extra_info, mudar_tipo_automato, limpar_tela - Omitido por brevidade) ...
     def _atualizar_widgets_extra_info(self):
         tipo = self.tipo_automato.get()
         self.lbl_output_tag.grid_remove()
@@ -340,8 +345,8 @@ class TelaPrincipal:
         self._atualizar_widgets_extra_info()
 
 
-    # --- AÇÕES DO CANVAS (clique_canvas, duplo_clique_canvas, etc.) ---
-    # ... (Omitido por brevidade, permanecem iguais com a verificação de deleção removida) ...
+    # --- AÇÕES DO CANVAS ---
+    # ... (clique_canvas, duplo_clique_canvas, _editar_label_transicao, _criar_transicao, arrastar_canvas, soltar_canvas, _get_estado_em, _get_transicao_label_em - Omitido por brevidade) ...
     def clique_canvas(self, event):
         mode = self.current_mode
         estado_clicado = self._get_estado_em(event.x, event.y)
@@ -503,7 +508,7 @@ class TelaPrincipal:
 
 
     # --- FUNÇÕES DE DESENHO ---
-    # ... (desenhar_automato, _desenhar_linha_curva, _agrupar_transicoes - Omitido por brevidade, permanecem iguais) ...
+    # ... (desenhar_automato, _desenhar_linha_curva, _agrupar_transicoes - Omitido por brevidade) ...
     def desenhar_automato(self, estados_ativos=None, transicoes_ativas=None, extra_info_str=None):
         try:
             self.canvas.delete("all")
@@ -630,6 +635,7 @@ class TelaPrincipal:
         bbox = self.canvas.bbox(text_id)
         if bbox: self.label_hitboxes[label_tag] = bbox
 
+
     def _agrupar_transicoes(self):
         # ... (código existente) ...
         agrupado = defaultdict(lambda: defaultdict(set))
@@ -664,7 +670,7 @@ class TelaPrincipal:
 
 
     # --- FUNÇÕES DE SIMULAÇÃO ---
-    # ... (iniciar_simulacao, parar_simulacao, executar_proximo_passo - Omitido por brevidade, permanecem iguais) ...
+    # ... (iniciar_simulacao, parar_simulacao, executar_proximo_passo - Omitido por brevidade) ...
     def iniciar_simulacao(self):
         self.parar_simulacao(final_state=False)
         cadeia = self.entrada_cadeia.get()
@@ -786,9 +792,9 @@ class TelaPrincipal:
             self.parar_simulacao()
 
 
-    # --- NOVOS MÉTODOS DE EXPORTAÇÃO ---
+    # --- MÉTODOS DE EXPORTAÇÃO ---
     def exportar_para_jpg(self):
-        """Salva a visualização atual do canvas como um arquivo JPG."""
+        # ... (código existente) ...
         if not self.automato or not self.automato.estados:
              messagebox.showwarning("Exportar JPG", "Não há autômato para exportar.", parent=self.master)
              return
@@ -814,8 +820,9 @@ class TelaPrincipal:
             messagebox.showerror("Erro ao Exportar JPG", f"Ocorreu um erro:\n{e}", parent=self.master)
             print(f"Erro ao exportar JPG: {e}")
 
+
     def exportar_para_jff(self):
-        """Exporta o autômato atual para o formato .jff do JFLAP."""
+        # ... (código existente) ...
         if not self.automato or not self.automato.estados:
             messagebox.showwarning("Exportar JFF", "Não há autômato para exportar.", parent=self.master)
             return
@@ -893,13 +900,11 @@ class TelaPrincipal:
                      ET.SubElement(trans_element, "from").text = origem_id
                      ET.SubElement(trans_element, "to").text = destino_id
                      read_element = ET.SubElement(trans_element, "read")
-                     # JFLAP usa tag vazia para símbolo branco na leitura
                      if lido != simbolo_branco_automato: read_element.text = lido
                      write_element = ET.SubElement(trans_element, "write")
-                     # JFLAP usa tag vazia para símbolo branco na escrita
                      if escrito != simbolo_branco_automato: write_element.text = escrito
                      move_element = ET.SubElement(trans_element, "move")
-                     move_element.text = direcao # 'R' ou 'L'
+                     move_element.text = direcao
             elif jflap_type == "mealy":
                  for (origem, simbolo), (destino, output) in self.automato.transicoes.items():
                     origem_id = state_to_id.get(origem)
@@ -919,7 +924,6 @@ class TelaPrincipal:
 
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n')
-                # Escreve a partir da segunda linha para evitar dupla declaração XML
                 f.write(pretty_xml_str.split('\n', 1)[1])
 
             messagebox.showinfo("Exportar JFF", f"Autômato salvo como JFF em:\n{filepath}", parent=self.master)
@@ -928,11 +932,9 @@ class TelaPrincipal:
             messagebox.showerror("Erro ao Exportar JFF", f"Ocorreu um erro:\n{e}", parent=self.master)
             print(f"Erro ao exportar JFF: {e}")
 
-    # --- FIM DOS NOVOS MÉTODOS ---
-
 
     # --- CLASSES DE DIÁLOGO ---
-    # ... (TransicaoPilhaDialog, TransicaoMealyDialog, TransicaoTuringDialog - Omitido por brevidade, permanecem iguais com a correção do 'ok' do Mealy) ...
+    # ... (TransicaoPilhaDialog, TransicaoMealyDialog, TransicaoTuringDialog - Omitido por brevidade) ...
 class TransicaoPilhaDialog(ctk.CTkToplevel):
     def __init__(self, parent, origem, destino, style_dict=None):
         # ... (código existente) ...
@@ -998,7 +1000,6 @@ class TransicaoMealyDialog(ctk.CTkToplevel):
         self.grab_set()
         self.e_simbolo.focus()
 
-    # --- CORRIGIDO para evitar UnboundLocalError ---
     def ok(self):
         simbolo_input = self.e_simbolo.get()
         output_input = self.e_output.get()
@@ -1009,7 +1010,6 @@ class TransicaoMealyDialog(ctk.CTkToplevel):
             'output': output_final
         }
         self.destroy()
-    # --- FIM DA CORREÇÃO ---
 
 class TransicaoTuringDialog(ctk.CTkToplevel):
     def __init__(self, parent, origem, destino, style_dict=None):
