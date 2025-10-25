@@ -45,20 +45,18 @@ class TelaPrincipal:
         self.canvas_transicao_text = "blue"
         self.canvas_transicao_ativa = "#1f9223"
         self.canvas_estado_ativo = "#ff6666"
-        
+
         # --- NOVAS CORES SEMÂNTICAS ---
         self.cor_destrutiva_fg = "#d32f2f"
         self.cor_destrutiva_hover = "#b71c1c"
         self.cor_navegacao_fg = "#565b5e"
         self.cor_navegacao_hover = "#4a4f52"
-        # --- ATUALIZAÇÃO: Cor personalizada para ferramentas agora é CINZA ---
         self.cor_ferramenta_fg = "#6c757d"    # Cinza médio
         self.cor_ferramenta_hover = "#5a6268" # Cinza médio mais escuro
-        # --- FIM DA ATUALIZAÇÃO ---
 
         # --- ESTILO PADRÃO PARA BOTÕES E WIDGETS ---
         self.style_font_bold = ctk.CTkFont(size=12, weight="bold")
-        
+
         self.style_top_widget = {
             "corner_radius": 10
         }
@@ -84,9 +82,9 @@ class TelaPrincipal:
 
         # --- Layout Principal ---
         self.master.grid_columnconfigure(0, weight=1)
-        self.master.grid_rowconfigure(2, weight=1) 
-        self.master.grid_rowconfigure(3, weight=0) 
-        self.master.grid_rowconfigure(4, weight=0) 
+        self.master.grid_rowconfigure(2, weight=1)
+        self.master.grid_rowconfigure(3, weight=0)
+        self.master.grid_rowconfigure(4, weight=0)
 
         # --- 1. Barra Superior ---
         top_bar = ctk.CTkFrame(master)
@@ -94,91 +92,91 @@ class TelaPrincipal:
 
         ctk.CTkLabel(top_bar, text="Tipo de Autômato:").pack(side="left", padx=(10,5))
         tipos_maquina = ["AFD", "AFN", "AP", "Moore", "Mealy", "Turing"]
-        tipo_menu = ctk.CTkComboBox(top_bar, variable=self.tipo_automato, 
+        tipo_menu = ctk.CTkComboBox(top_bar, variable=self.tipo_automato,
                                       values=tipos_maquina, command=self.mudar_tipo_automato,
-                                      **self.style_top_widget) 
+                                      **self.style_top_widget)
         tipo_menu.pack(side="left", padx=5)
 
-        self.btn_limpar = ctk.CTkButton(top_bar, 
-                                        text="Limpar Tudo 💀", 
-                                        command=self.limpar_tela, 
+        self.btn_limpar = ctk.CTkButton(top_bar,
+                                        text="Limpar Tudo",
+                                        command=self.limpar_tela,
                                         width=100,
                                         fg_color=self.cor_destrutiva_fg,
                                         hover_color=self.cor_destrutiva_hover,
-                                        **self.style_top_widget 
+                                        **self.style_top_widget
                                         )
         self.btn_limpar.pack(side="left", padx=(20, 10))
 
         self.btn_theme_toggle = ctk.CTkButton(top_bar, text="",
                                               command=self.toggle_theme, width=120,
-                                              **self.style_top_widget) 
+                                              **self.style_top_widget)
         self.btn_theme_toggle.pack(side="left", padx=10)
-        self.update_theme_button_text() 
+        self.update_theme_button_text()
 
         if self.voltar_menu_callback:
             self.btn_voltar = ctk.CTkButton(
-            top_bar, 
-            text="← Voltar ao Menu", 
+            top_bar,
+            text="← Voltar ao Menu",
             command=self.voltar_ao_menu,
             width=140,
-            fg_color=self.cor_navegacao_fg,     
-            hover_color=self.cor_navegacao_hover, 
-            **self.style_top_widget 
+            fg_color=self.cor_navegacao_fg,
+            hover_color=self.cor_navegacao_hover,
+            **self.style_top_widget
         )
         self.btn_voltar.pack(side="right", padx=(10, 10))
 
         # --- 2. Barra de Ferramentas ---
-        
+
         tool_bar_container = ctk.CTkFrame(master, fg_color="transparent")
         tool_bar_container.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
 
         tool_bar = ctk.CTkFrame(tool_bar_container)
-        tool_bar.pack(anchor="center") 
-        
+        tool_bar.pack(anchor="center")
+
         btn_inicial = ctk.CTkButton(tool_bar, text="► Inicial",
                                       command=lambda mid="INICIAL": self.set_active_mode(mid),
-                                      fg_color=self.cor_ferramenta_fg, # Usa cor cinza
-                                      hover_color=self.cor_ferramenta_hover, # Usa cor cinza
+                                      fg_color=self.cor_ferramenta_fg,
+                                      hover_color=self.cor_ferramenta_hover,
                                       **self.style_tool_button)
         btn_inicial.pack(side="left", padx=5, pady=5)
         self.tool_buttons["INICIAL"] = btn_inicial
 
         btn_final = ctk.CTkButton(tool_bar, text="◎ Final",
                                     command=lambda mid="FINAL": self.set_active_mode(mid),
-                                    fg_color=self.cor_ferramenta_fg, # Usa cor cinza
-                                    hover_color=self.cor_ferramenta_hover, # Usa cor cinza
+                                    fg_color=self.cor_ferramenta_fg,
+                                    hover_color=self.cor_ferramenta_hover,
                                     **self.style_tool_button)
         btn_final.pack(side="left", padx=5, pady=5)
         self.tool_buttons["FINAL"] = btn_final
 
         btn_estado = ctk.CTkButton(tool_bar, text="○ Estado",
                                      command=lambda mid="ESTADO": self.set_active_mode(mid),
-                                     fg_color=self.cor_ferramenta_fg, # Usa cor cinza
-                                     hover_color=self.cor_ferramenta_hover, # Usa cor cinza
+                                     fg_color=self.cor_ferramenta_fg,
+                                     hover_color=self.cor_ferramenta_hover,
                                      **self.style_tool_button)
         btn_estado.pack(side="left", padx=5, pady=5)
         self.tool_buttons["ESTADO"] = btn_estado
 
         btn_deletar = ctk.CTkButton(tool_bar, text="❌ Deletar",
                                       command=lambda mid="DELETAR": self.set_active_mode(mid),
-                                      fg_color=self.cor_destrutiva_fg,     
-                                      hover_color=self.cor_destrutiva_hover, 
-                                      **self.style_tool_button) 
+                                      fg_color=self.cor_destrutiva_fg,
+                                      hover_color=self.cor_destrutiva_hover,
+                                      **self.style_tool_button)
         btn_deletar.pack(side="left", padx=5, pady=5)
         self.tool_buttons["DELETAR"] = btn_deletar
 
         btn_mover = ctk.CTkButton(tool_bar, text="✥ Mover/Editar",
                                     command=lambda mid="MOVER": self.set_active_mode(mid),
-                                    fg_color=self.cor_ferramenta_fg, # Usa cor cinza
-                                    hover_color=self.cor_ferramenta_hover, # Usa cor cinza
+                                    fg_color=self.cor_ferramenta_fg,
+                                    hover_color=self.cor_ferramenta_hover,
                                     **self.style_tool_button)
         btn_mover.pack(side="left", padx=5, pady=5)
         self.tool_buttons["MOVER"] = btn_mover
 
         btn_transicao = ctk.CTkButton(tool_bar, text="→ Transição",
                                         command=lambda mid="TRANSICAO": self.set_active_mode(mid),
-                                        fg_color=self.cor_ferramenta_fg, # Usa cor cinza
-                                        hover_color=self.cor_ferramenta_hover, # Usa cor cinza
+                                        fg_color=self.cor_ferramenta_fg,
+                                        hover_color=self.cor_ferramenta_hover,
                                         **self.style_tool_button)
         btn_transicao.pack(side="left", padx=5, pady=5)
         self.tool_buttons["TRANSICAO"] = btn_transicao
@@ -195,7 +193,7 @@ class TelaPrincipal:
 
         self.lbl_output_tag = ctk.CTkLabel(self.frame_extra_info, text="Saída:", font=ctk.CTkFont(weight="bold"))
         self.lbl_output_valor = ctk.CTkLabel(self.frame_extra_info, text="", font=ctk.CTkFont(size=16, weight="bold"), text_color=self.cor_finalizado)
-        
+
         self.lbl_tape_tag = ctk.CTkLabel(self.frame_extra_info, text="Fita:", font=ctk.CTkFont(weight="bold"))
         self.lbl_tape_valor = ctk.CTkLabel(self.frame_extra_info, text="", font=ctk.CTkFont(family="Courier New", size=16, weight="bold"))
 
@@ -207,23 +205,23 @@ class TelaPrincipal:
         frame_simulacao.grid_columnconfigure(5, weight=0)
 
         ctk.CTkLabel(frame_simulacao, text="Entrada:").grid(row=0, column=0, padx=(10,5), pady=10)
-        self.entrada_cadeia = ctk.CTkEntry(frame_simulacao, 
+        self.entrada_cadeia = ctk.CTkEntry(frame_simulacao,
                                            placeholder_text="Digite a cadeia para simular...",
-                                           **self.style_top_widget) 
+                                           **self.style_top_widget)
         self.entrada_cadeia.grid(row=0, column=1, padx=5, pady=10, sticky="ew")
 
-        self.btn_simular = ctk.CTkButton(frame_simulacao, text="▶ Iniciar", 
+        self.btn_simular = ctk.CTkButton(frame_simulacao, text="▶ Iniciar",
                                          command=self.iniciar_simulacao, width=100,
-                                         fg_color=self.cor_ferramenta_fg,      # Usa cor cinza
-                                         hover_color=self.cor_ferramenta_hover, # Usa cor cinza
-                                         **self.style_sim_button) 
+                                         fg_color=self.cor_ferramenta_fg,
+                                         hover_color=self.cor_ferramenta_hover,
+                                         **self.style_sim_button)
         self.btn_simular.grid(row=0, column=2, padx=5, pady=10)
 
-        self.btn_proximo_passo = ctk.CTkButton(frame_simulacao, text="Passo >", 
+        self.btn_proximo_passo = ctk.CTkButton(frame_simulacao, text="Passo >",
                                                command=self.executar_proximo_passo, width=100,
-                                               fg_color=self.cor_ferramenta_fg,      # Usa cor cinza
-                                               hover_color=self.cor_ferramenta_hover, # Usa cor cinza
-                                               **self.style_sim_button) 
+                                               fg_color=self.cor_ferramenta_fg,
+                                               hover_color=self.cor_ferramenta_hover,
+                                               **self.style_sim_button)
         self.btn_proximo_passo.grid(row=0, column=3, padx=5, pady=10)
 
         cadeia_status_frame = ctk.CTkFrame(frame_simulacao, fg_color="transparent")
@@ -256,11 +254,10 @@ class TelaPrincipal:
         self.update_button_styles()
         self.update_cursor_and_status()
 
-    # --- ATUALIZADO: Lida com as cores cinzas ---
     def update_button_styles(self):
         for mode_id, button in self.tool_buttons.items():
             is_active = (mode_id == self.current_mode)
-            
+
             if mode_id == "DELETAR":
                 color = self.cor_destrutiva_hover if is_active else self.cor_destrutiva_fg
                 button.configure(fg_color=color)
@@ -280,13 +277,13 @@ class TelaPrincipal:
         current_mode = ctk.get_appearance_mode()
         new_mode = "Light" if current_mode == "Dark" else "Dark"
         ctk.set_appearance_mode(new_mode)
-        
-        self.update_theme_button_text() 
-        
+
+        self.update_theme_button_text()
+
         self.default_fg_color = ctk.ThemeManager.theme["CTkLabel"]["text_color"]
-        self.update_button_styles() 
+        self.update_button_styles()
         self.desenhar_automato()
-    
+
     def voltar_ao_menu(self):
         if self.voltar_menu_callback:
             if self.simulador:
@@ -297,17 +294,17 @@ class TelaPrincipal:
 
     def update_theme_button_text(self):
         current_mode = ctk.get_appearance_mode()
-        
+
         if current_mode == "Dark":
             button_text = "Modo Claro ☀️"
-            btn_fg_color = "#F0F0F0"       
-            btn_hover_color = "#D5D5D5"  
-            btn_text_color = "#1A1A1A"   
+            btn_fg_color = "#F0F0F0"
+            btn_hover_color = "#D5D5D5"
+            btn_text_color = "#1A1A1A"
         else:
             button_text = "Modo Escuro 🌙"
-            btn_fg_color = "#333333"       
-            btn_hover_color = "#4A4A4A"  
-            btn_text_color = "#E0E0E0"   
+            btn_fg_color = "#333333"
+            btn_hover_color = "#4A4A4A"
+            btn_text_color = "#E0E0E0"
 
         self.btn_theme_toggle.configure(
             text=button_text,
@@ -317,21 +314,21 @@ class TelaPrincipal:
         )
 
     # --- FUNÇÕES DE UI ---
-    
+
     def _atualizar_widgets_extra_info(self):
         tipo = self.tipo_automato.get()
         self.lbl_output_tag.grid_remove()
         self.lbl_output_valor.grid_remove()
         self.lbl_tape_tag.grid_remove()
         self.lbl_tape_valor.grid_remove()
-        
+
         if tipo in ["Moore", "Mealy"]:
             self.lbl_output_tag.grid(row=0, column=0, padx=(10,5), pady=5, sticky="w")
             self.lbl_output_valor.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         elif tipo == "Turing":
             self.lbl_tape_tag.grid(row=0, column=0, padx=(10,5), pady=5, sticky="w")
             self.lbl_tape_valor.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        
+
         if tipo in ["AFD", "AFN", "AP"]:
              self.frame_extra_info.grid_remove()
         else:
@@ -350,7 +347,7 @@ class TelaPrincipal:
         elif tipo == "Moore": self.automato = MaquinaMoore()
         elif tipo == "Mealy": self.automato = MaquinaMealy()
         elif tipo == "Turing": self.automato = MaquinaTuring()
-        
+
         self.positions = {}
         self.parar_simulacao(final_state=False)
         self.set_active_mode("MOVER")
@@ -358,6 +355,7 @@ class TelaPrincipal:
         self._atualizar_widgets_extra_info()
 
 
+    # <-- ATUALIZAÇÃO: Verificações messagebox.askyesno removidas -->
     def clique_canvas(self, event):
         mode = self.current_mode
         estado_clicado = self._get_estado_em(event.x, event.y)
@@ -365,9 +363,9 @@ class TelaPrincipal:
 
         if mode == "ESTADO" and not estado_clicado and not transicao_clicada:
             nome_estado = f"q{self.contador_estados}"
-            while nome_estado in self.automato.estados: 
+            while nome_estado in self.automato.estados:
                 self.contador_estados += 1; nome_estado = f"q{self.contador_estados}"
-            
+
             if self.tipo_automato.get() == "Moore":
                 dialog = ctk.CTkInputDialog(text="Símbolo de Saída do Estado (vazio=default):", title="Criar Estado Moore")
                 output = dialog.get_input()
@@ -375,7 +373,7 @@ class TelaPrincipal:
                 self.automato.adicionar_estado(nome_estado, event.x, event.y, output=output)
             else:
                 self.automato.adicionar_estado(nome_estado, event.x, event.y)
-            
+
             self.positions[nome_estado] = (event.x, event.y)
             self.contador_estados += 1
         elif estado_clicado:
@@ -389,21 +387,24 @@ class TelaPrincipal:
             elif mode == "FINAL": self.automato.alternar_estado_final(estado_clicado.nome)
             elif mode == "MOVER": self.estado_movendo = estado_clicado
             elif mode == "DELETAR":
-                if messagebox.askyesno("Deletar Estado", f"Tem certeza que quer deletar o estado '{estado_clicado.nome}' e todas as suas transições?", parent=self.master):
-                    nome_a_deletar = estado_clicado.nome
-                    self.automato.deletar_estado(nome_a_deletar)
-                    self.positions.pop(nome_a_deletar, None)
+                # --- REMOVIDO: if messagebox.askyesno(...) ---
+                nome_a_deletar = estado_clicado.nome
+                self.automato.deletar_estado(nome_a_deletar)
+                self.positions.pop(nome_a_deletar, None)
+                # --- FIM DA REMOÇÃO ---
             else: pass
         elif transicao_clicada and mode == "DELETAR":
             origem, destino = transicao_clicada
-            if messagebox.askyesno("Deletar Transição", f"Tem certeza que quer deletar TODAS as transições de '{origem}' para '{destino}'?", parent=self.master):
-                if hasattr(self.automato, 'deletar_transicoes_entre'):
-                    self.automato.deletar_transicoes_entre(origem, destino)
-                else: print(f"Aviso: Método 'deletar_transicoes_entre' não implementado para {type(self.automato)}")
+            # --- REMOVIDO: if messagebox.askyesno(...) ---
+            if hasattr(self.automato, 'deletar_transicoes_entre'):
+                self.automato.deletar_transicoes_entre(origem, destino)
+            else: print(f"Aviso: Método 'deletar_transicoes_entre' não implementado para {type(self.automato)}")
+            # --- FIM DA REMOÇÃO ---
         elif not estado_clicado and not transicao_clicada:
             self.origem_transicao = None
 
         self.desenhar_automato()
+    # <-- FIM DA ATUALIZAÇÃO -->
 
 
     def duplo_clique_canvas(self, event):
@@ -413,12 +414,12 @@ class TelaPrincipal:
 
         if estado_clicado and mode == "MOVER":
             novo_nome = ctk.CTkInputDialog(text="Digite o novo nome do estado:", title="Renomear Estado").get_input()
-            
+
             if self.tipo_automato.get() == "Moore":
                 novo_output = ctk.CTkInputDialog(text="Digite a nova saída do estado:", title="Editar Saída Moore").get_input()
                 if novo_output is not None:
                     self.automato.set_output_estado(estado_clicado.nome, novo_output)
-            
+
             if novo_nome and novo_nome != estado_clicado.nome:
                 try:
                     pos = self.positions.pop(estado_clicado.nome)
@@ -462,7 +463,7 @@ class TelaPrincipal:
 
     def _criar_transicao(self, origem, destino):
         tipo = self.tipo_automato.get()
-        
+
         if tipo in ["AFD", "AFN", "Moore"]:
             dialog = ctk.CTkInputDialog(text="Símbolo(s) (use 'e' para ε, vírgula para separar):", title=f"Criar Transição {tipo}")
             simbolo_input = dialog.get_input()
@@ -471,15 +472,15 @@ class TelaPrincipal:
                 for s in simbolos:
                     simbolo_final = EPSILON if s == 'e' else s
                     self.automato.adicionar_transicao(origem.nome, simbolo_final, destino.nome)
-        
+
         elif tipo == "AP":
-            dlg = TransicaoPilhaDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget) 
+            dlg = TransicaoPilhaDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget)
             self.master.wait_window(dlg)
             if dlg.resultado:
                 self.automato.adicionar_transicao(origem.nome, dlg.resultado['entrada'], dlg.resultado['pop'], destino.nome, dlg.resultado['push'])
-        
+
         elif tipo == "Mealy":
-            dlg = TransicaoMealyDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget) 
+            dlg = TransicaoMealyDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget)
             self.master.wait_window(dlg)
             if dlg.resultado:
                 simbolo = EPSILON if dlg.resultado['simbolo'] == 'e' else dlg.resultado['simbolo']
@@ -487,11 +488,11 @@ class TelaPrincipal:
                 self.automato.adicionar_transicao(origem.nome, simbolo, destino.nome, output)
 
         elif tipo == "Turing":
-            dlg = TransicaoTuringDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget) 
+            dlg = TransicaoTuringDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget)
             self.master.wait_window(dlg)
             if dlg.resultado:
                 self.automato.adicionar_transicao(origem.nome, dlg.resultado['lido'], destino.nome, dlg.resultado['escrito'], dlg.resultado['dir'])
-                
+
         self.desenhar_automato()
 
     # --- Funções de Arrastar/Soltar ---
@@ -592,12 +593,12 @@ class TelaPrincipal:
                 self.canvas.create_oval(x - STATE_RADIUS, y - STATE_RADIUS, x + STATE_RADIUS, y + STATE_RADIUS,
                                         fill=self.canvas_estado_fill, outline=cor_borda,
                                         width=3 if cor_borda == self.canvas_estado_ativo else 2)
-                
+
                 texto_estado = nome
                 if tipo == "Moore" and estado.output:
                     texto_estado = f"{nome}\n({estado.output})"
                 self.canvas.create_text(x, y, text=texto_estado, font=FONT, fill=self.canvas_estado_text, justify=tk.CENTER)
-                
+
                 if estado.is_final:
                     self.canvas.create_oval(x - (STATE_RADIUS - 5), y - (STATE_RADIUS - 5),
                                             x + (STATE_RADIUS - 5), y + (STATE_RADIUS - 5),
@@ -611,10 +612,10 @@ class TelaPrincipal:
             if self.origem_transicao and self.origem_transicao.nome in self.positions:
                 x, y = self.positions[self.origem_transicao.nome]
                 self.canvas.create_oval(x-STATE_RADIUS-3, y-STATE_RADIUS-3, x+STATE_RADIUS+3, y+STATE_RADIUS+3, outline="#33cc33", width=2, dash=(4, 4))
-            
+
             if extra_info_str is not None:
                 tag = "Pilha: " if tipo == "AP" else ("Fita: " if tipo == "Turing" else "")
-                if tag: 
+                if tag:
                     self.canvas.create_rectangle(10, 10, 10 + len(tag + extra_info_str) * 8, 40, fill="#f0f0f0", outline="")
                     self.canvas.create_text(15, 25, text=f"{tag}{extra_info_str}", font=FONT, fill=self.canvas_fg_color, anchor="w")
 
@@ -689,7 +690,7 @@ class TelaPrincipal:
 
         self.lbl_cadeia_consumida.configure(text="")
         self.lbl_cadeia_restante.configure(text=cadeia if tipo not in ["Turing"] else "", text_color=self.default_fg_color)
-        self.lbl_output_valor.configure(text="") 
+        self.lbl_output_valor.configure(text="")
         self.lbl_tape_valor.configure(text="" if tipo == "Turing" else "")
 
         try:
@@ -708,8 +709,8 @@ class TelaPrincipal:
             elif tipo == "Moore": self.simulador = SimuladorMoore(self.automato, cadeia)
             elif tipo == "Mealy": self.simulador = SimuladorMealy(self.automato, cadeia)
             elif tipo == "Turing": self.simulador = SimuladorMT(self.automato, cadeia)
-        
-        except Exception as e: 
+
+        except Exception as e:
             messagebox.showerror("Erro ao Iniciar", str(e)); return
 
         self.btn_simular.configure(text="⏹ Parar", command=self.parar_simulacao)
@@ -754,18 +755,18 @@ class TelaPrincipal:
             return
 
         status = passo_info["status"]
-        extra_info_canvas = None 
-        
+        extra_info_canvas = None
+
         if "tape" in passo_info and passo_info["tape"] is not None:
             self.lbl_tape_valor.configure(text=passo_info["tape"])
             extra_info_canvas = passo_info["tape"]
-        
+
         if "output" in passo_info and passo_info["output"] is not None:
             self.lbl_output_valor.configure(text=passo_info["output"])
-            
+
         if "pilha" in passo_info and passo_info["pilha"] is not None:
              extra_info_canvas = passo_info["pilha"]
-        
+
         if "cadeia_restante" in passo_info and tipo != "Turing":
             cadeia_restante = passo_info['cadeia_restante']
             cadeia_original = self.entrada_cadeia.get()
@@ -808,28 +809,28 @@ class TransicaoPilhaDialog(ctk.CTkToplevel):
         super().__init__(parent)
         self.title(f"Transição AP")
         self.resultado = None
-        self.geometry("300x350") 
+        self.geometry("300x350")
         if style_dict is None: style_dict = {}
 
         ctk.CTkLabel(self, text=f"{origem}  ->  {destino}", font=ctk.CTkFont(size=16, weight="bold")).pack(padx=20, pady=(10,5))
-        
+
         ctk.CTkLabel(self, text="Entrada (e=vazio):").pack(padx=20, pady=(10,0))
         self.e_entrada = ctk.CTkEntry(self, **style_dict)
         self.e_entrada.pack(padx=20, pady=5)
         self.e_entrada.insert(0, 'e')
-        
+
         ctk.CTkLabel(self, text="Desempilha (e=vazio):").pack(padx=20, pady=(10,0))
         self.e_pop = ctk.CTkEntry(self, **style_dict)
         self.e_pop.pack(padx=20, pady=5)
         self.e_pop.insert(0, 'e')
-        
+
         ctk.CTkLabel(self, text="Empilha (e=vazio):").pack(padx=20, pady=(10,0))
         self.e_push = ctk.CTkEntry(self, **style_dict)
         self.e_push.pack(padx=20, pady=5)
         self.e_push.insert(0, 'e')
-        
+
         ctk.CTkButton(self, text="OK", command=self.ok, **style_dict).pack(padx=20, pady=20)
-        
+
         self.grab_set()
         self.e_entrada.focus()
 
@@ -846,26 +847,26 @@ class TransicaoMealyDialog(ctk.CTkToplevel):
         super().__init__(parent)
         self.title(f"Transição Mealy")
         self.resultado = None
-        self.geometry("300x280") 
+        self.geometry("300x280")
         if style_dict is None: style_dict = {}
-        
+
         ctk.CTkLabel(self, text=f"{origem}  ->  {destino}", font=ctk.CTkFont(size=16, weight="bold")).pack(padx=20, pady=(10,5))
-        
+
         ctk.CTkLabel(self, text="Símbolo de Entrada (e=vazio):").pack(padx=20, pady=(10,0))
         self.e_simbolo = ctk.CTkEntry(self, **style_dict)
         self.e_simbolo.pack(padx=20, pady=5)
         self.e_simbolo.insert(0, 'e')
-        
+
         ctk.CTkLabel(self, text="Símbolo de Saída (e=vazio):").pack(padx=20, pady=(10,0))
         self.e_output = ctk.CTkEntry(self, **style_dict)
         self.e_output.pack(padx=20, pady=5)
         self.e_output.insert(0, 'e')
-        
+
         ctk.CTkButton(self, text="OK", command=self.ok, **style_dict).pack(padx=20, pady=20)
-        
+
         self.grab_set()
         self.e_simbolo.focus()
-        
+
     def ok(self):
         self.resultado = {
             'simbolo': (s := self.e_simbolo.get()) if s else 'e',
@@ -880,29 +881,29 @@ class TransicaoTuringDialog(ctk.CTkToplevel):
         self.resultado = None
         self.geometry("300x350")
         if style_dict is None: style_dict = {}
-        
+
         ctk.CTkLabel(self, text=f"{origem}  ->  {destino}", font=ctk.CTkFont(size=16, weight="bold")).pack(padx=20, pady=(10,5))
-        
+
         ctk.CTkLabel(self, text="Símbolo Lido:").pack(padx=20, pady=(10,0))
         self.e_lido = ctk.CTkEntry(self, **style_dict)
         self.e_lido.pack(padx=20, pady=5)
         self.e_lido.insert(0, 'B')
-        
+
         ctk.CTkLabel(self, text="Símbolo Escrito:").pack(padx=20, pady=(10,0))
         self.e_escrito = ctk.CTkEntry(self, **style_dict)
         self.e_escrito.pack(padx=20, pady=5)
         self.e_escrito.insert(0, 'B')
-        
+
         ctk.CTkLabel(self, text="Direção (L/R):").pack(padx=20, pady=(10,0))
         self.e_dir = ctk.CTkEntry(self, width=50, **style_dict)
         self.e_dir.pack(padx=20, pady=5)
         self.e_dir.insert(0, 'R')
-        
+
         ctk.CTkButton(self, text="OK", command=self.ok, **style_dict).pack(padx=20, pady=20)
-        
+
         self.grab_set()
         self.e_lido.focus()
-        
+
     def ok(self):
         lido = self.e_lido.get() or 'B'
         escrito = self.e_escrito.get() or 'B'
