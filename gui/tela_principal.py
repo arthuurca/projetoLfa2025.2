@@ -1025,12 +1025,12 @@ class TransicaoTuringDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Símbolo Lido:").pack(padx=20, pady=(10,0))
         self.e_lido = ctk.CTkEntry(self, **style_dict)
         self.e_lido.pack(padx=20, pady=5)
-        self.e_lido.insert(0, 'B')
+        self.e_lido.insert(0, '☐')
 
         ctk.CTkLabel(self, text="Símbolo Escrito:").pack(padx=20, pady=(10,0))
         self.e_escrito = ctk.CTkEntry(self, **style_dict)
         self.e_escrito.pack(padx=20, pady=5)
-        self.e_escrito.insert(0, 'B')
+        self.e_escrito.insert(0, '☐')
 
         ctk.CTkLabel(self, text="Direção (L/R):").pack(padx=20, pady=(10,0))
         self.e_dir = ctk.CTkEntry(self, width=50, **style_dict)
@@ -1043,8 +1043,8 @@ class TransicaoTuringDialog(ctk.CTkToplevel):
         self.e_lido.focus()
 
     def ok(self):
-        lido = self.e_lido.get() or 'B'
-        escrito = self.e_escrito.get() or 'B'
+        lido = self.e_lido.get() or '☐'
+        escrito = self.e_escrito.get() or '☐'
         direcao = (self.e_dir.get() or 'R').upper()
         if direcao not in ['L', 'R']:
             messagebox.showerror("Erro", "Direção deve ser 'L' ou 'R'.", parent=self)

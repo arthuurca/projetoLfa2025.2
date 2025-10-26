@@ -6,7 +6,8 @@ class MaquinaTuring:
     """
     Máquina de Turing (Determinística, 1 fita).
     """
-    def __init__(self, simbolo_branco='B'):
+    # --- MUDANÇA AQUI ---
+    def __init__(self, simbolo_branco='☐'): # Alterado de 'B' para '☐'
         self.estados = {}
         # (origem, lido) -> (destino, escrito, direcao)
         self.transicoes = {}
@@ -34,7 +35,7 @@ class MaquinaTuring:
             raise ValueError("Estado de origem ou destino inválido.")
         if direcao not in ['R', 'L']:
             raise ValueError("Direção deve ser 'R' ou 'L'.")
-        
+
         self.transicoes[(origem, lido)] = (destino, escrito, direcao)
 
     def definir_estado_inicial(self, nome_estado):
@@ -75,7 +76,7 @@ class MaquinaTuring:
             nova_origem = nome_novo if origem == nome_antigo else origem
             novo_destino = nome_novo if destino == nome_antigo else destino
             novas_transicoes[(nova_origem, lido)] = (novo_destino, escrito, direcao)
-            
+
         self.transicoes = novas_transicoes
 
         if self.estado_inicial and self.estado_inicial.nome == nome_novo:
@@ -103,7 +104,7 @@ class MaquinaTuring:
             o_real, s = chave
             if o_real == origem and d_real == destino:
                 chaves_para_remover.append(chave)
-        
+
         for chave in chaves_para_remover:
             if chave in self.transicoes:
                 del self.transicoes[chave]
