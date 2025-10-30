@@ -955,11 +955,12 @@ class TelaPrincipal:
                                                 tags=("estado_inicial_seta", f"estado_{nome}"))
 
                 # --- OUTROS ELEMENTOS ---
-                if self.origem_transicao and self.origem_transicao.nome in self.positions:
-                    x, y = self._logical_to_view(*self.positions[self.origem_transicao.nome])
-                    self.canvas.create_oval(x-scaled_radius-3, y-scaled_radius-3, x+scaled_radius+3, y+scaled_radius+3,
-                                            outline=self.cor_verde_fg[current_theme], width=2, dash=(4, 4), # MUDANÇA
-                                            tags="origem_transicao_destaque")
+                # O destaque verde tracejado foi removido para usar o azul sólido acima
+                # if self.origem_transicao and self.origem_transicao.nome in self.positions:
+                #     x, y = self._logical_to_view(*self.positions[self.origem_transicao.nome])
+                #     self.canvas.create_oval(x-scaled_radius-3, y-scaled_radius-3, x+scaled_radius+3, y+scaled_radius+3,
+                #                             outline=self.cor_verde_fg[current_theme], width=2, dash=(4, 4), # MUDANÇA
+                #                             tags="origem_transicao_destaque")
 
                 if extra_info_str is not None:
                     scaled_info_font = (FONT[0], max(1, int(FONT[1] * self.zoom_level)))
@@ -1193,18 +1194,28 @@ class TelaPrincipal:
         if "pilha" in passo_info and passo_info["pilha"] is not None:
                 extra_info_canvas = passo_info["pilha"]
 
+        # --- BLOCO MODIFICADO ---
         if "cadeia_restante" in passo_info and tipo != "Turing":
             cadeia_restante = passo_info['cadeia_restante']
             cadeia_original = self.entrada_cadeia.get()
             split_point = len(cadeia_original) - len(cadeia_restante)
             cadeia_consumida = cadeia_original[:split_point]
             
-            self.lbl_cadeia_consumida.configure(text=cadeia_consumida, text_color=self.cor_consumida[current_theme]) 
-            self.lbl_cadeia_restante.configure(text=cadeia_restante, text_color=self.default_fg_color[current_theme])
+            # Define a cor com base no status ATUAL
+            cor_consumo = self.cor_consumida[current_theme] # Padrão (verde)
+            cor_restante = self.default_fg_color[current_theme] # Padrão (default)
+
+            if status == "rejeita":
+                cor_consumo = self.cor_rejeita[current_theme] # Vermelho se rejeitado
+                cor_restante = self.cor_rejeita[current_theme] # Vermelho se rejeitado
+            
+            self.lbl_cadeia_consumida.configure(text=cadeia_consumida, text_color=cor_consumo) 
+            self.lbl_cadeia_restante.configure(text=cadeia_restante, text_color=cor_restante) # <-- COR APLICADA
             
         elif tipo == "Turing":
                 self.lbl_cadeia_consumida.configure(text="")
                 self.lbl_cadeia_restante.configure(text="")
+        # --- FIM DO BLOCO MODIFICADO ---
 
         # Atualiza o canvas e status com base no resultado do passo
         if status == "executando":
@@ -1221,14 +1232,8 @@ class TelaPrincipal:
         elif status == "rejeita":
             self.lbl_status_simulacao.configure(text="Palavra Não Aceita", text_color=self.cor_rejeita[current_theme])
             
-            if "cadeia_restante" in passo_info and tipo != "Turing":
-                cadeia_restante = passo_info['cadeia_restante']
-                cadeia_original = self.entrada_cadeia.get()
-                split_point = len(cadeia_original) - len(cadeia_restante)
-                cadeia_consumida = cadeia_original[:split_point]
-                
-                self.lbl_cadeia_consumida.configure(text=cadeia_consumida, text_color=self.cor_rejeita[current_theme])
-                self.lbl_cadeia_restante.configure(text=cadeia_restante, text_color=self.default_fg_color[current_theme])
+            # A cor da lbl_cadeia_consumida E lbl_cadeia_restante
+            # já foi definida como vermelha no bloco 'if "cadeia_restante"...' acima.
 
             self.desenhar_automato(passo_info.get("estado_atual"), passo_info.get("transicao_ativa"), extra_info_canvas)
             self.parar_simulacao(final_state=True)
