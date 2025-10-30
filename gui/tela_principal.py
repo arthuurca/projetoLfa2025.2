@@ -35,6 +35,9 @@ class TelaPrincipal:
         self.contador_estados = 0
         self.positions = {}
         self.label_hitboxes = {}
+        
+        # --- NOVAS VARIÁVEIS DE ZOOM ---
+        self.zoom_level = 1.5 # Modificado: Inicia em 50%
 
         # --- Cores e Estilos ---
         self.default_fg_color = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
@@ -85,9 +88,15 @@ class TelaPrincipal:
         self.estado_movendo = None
         self.simulador = None
 
+        # --- NOVAS VARIÁVEIS PARA SELEÇÃO MÚLTIPLA ---
+        self.selection_box_start = None # (x, y) visual coords for start of box
+        self.selection_box_id = None    # ID of the rectangle on canvas
+        self.selection_group = set()    # Set of state names being moved
+        self.drag_start_pos = None      # (x, y) visual coords for calculating drag delta
+
         # --- Layout Principal ---
         self.master.grid_columnconfigure(0, weight=1)
-        self.master.grid_rowconfigure(2, weight=1)
+        self.master.grid_rowconfigure(2, weight=1) # Modificado: Aponta para o canvas_frame
         self.master.grid_rowconfigure(3, weight=0)
         self.master.grid_rowconfigure(4, weight=0)
 
@@ -117,13 +126,22 @@ class TelaPrincipal:
                                               **self.style_top_widget)
         self.btn_theme_toggle.pack(side="left", padx=10)
         self.update_theme_button_text()
+        
+        # --- NOVO BOTÃO DE ABRIR ---
+        self.btn_open_jff = ctk.CTkButton(top_bar, text="📂 Abrir JFF",
+                                            command=self.importar_de_jff, width=120,
+                                            fg_color=self.cor_ferramenta_fg,
+                                            hover_color=self.cor_ferramenta_hover,
+                                            **self.style_top_widget)
+        self.btn_open_jff.pack(side="left", padx=(20, 5))
+        # --- FIM DO NOVO BOTÃO ---
 
         self.btn_export_jff = ctk.CTkButton(top_bar, text="💾 Salvar JFF",
                                             command=self.exportar_para_jff, width=120,
                                             fg_color=self.cor_ferramenta_fg,
                                             hover_color=self.cor_ferramenta_hover,
                                             **self.style_top_widget)
-        self.btn_export_jff.pack(side="left", padx=(20, 5))
+        self.btn_export_jff.pack(side="left", padx=(5, 5)) # Padding ajustado
 
         self.btn_export_jpg = ctk.CTkButton(top_bar, text="🖼️ Salvar JPG",
                                             command=self.exportar_para_jpg, width=120,
@@ -167,9 +185,33 @@ class TelaPrincipal:
         btn_transicao.pack(side="left", padx=5, pady=5); self.tool_buttons["TRANSICAO"] = btn_transicao
 
 
-        # --- 3. Canvas ---
-        self.canvas = tk.Canvas(master, bg=self.canvas_bg, bd=0, highlightthickness=0)
-        self.canvas.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
+        # --- 3. Canvas e Slider de Zoom (MODIFICADO) ---
+        
+        # Cria um frame principal para o canvas e o slider
+        canvas_frame = ctk.CTkFrame(master, fg_color="transparent")
+        canvas_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=5)
+        canvas_frame.grid_rowconfigure(0, weight=1)
+        canvas_frame.grid_columnconfigure(0, weight=0) # Coluna do Slider
+        canvas_frame.grid_columnconfigure(1, weight=1) # Coluna do Canvas
+
+        # Adiciona o Slider de Zoom
+        self.zoom_slider = ctk.CTkSlider(
+            canvas_frame,
+            from_=0.2,
+            to=3.0,
+            number_of_steps=28,
+            orientation="vertical",
+            command=self.on_zoom_change,
+            button_color=self.cor_ferramenta_fg,      # Cor do botão adicionada
+            button_hover_color=self.cor_ferramenta_hover # Cor do botão adicionada
+        )
+        self.zoom_slider.grid(row=0, column=0, sticky="ns", padx=(0, 5))
+        self.zoom_slider.set(1.5) # Modificado: Define o zoom inicial como 50%
+
+        # Adiciona o Canvas (agora dentro do 'canvas_frame')
+        self.canvas = tk.Canvas(canvas_frame, bg=self.canvas_bg, bd=0, highlightthickness=0)
+        self.canvas.grid(row=0, column=1, sticky="nsew") # Modificado
+
 
         # --- 4. Frame Fita/Saída ---
         self.frame_extra_info = ctk.CTkFrame(master)
@@ -212,16 +254,13 @@ class TelaPrincipal:
         cadeia_status_frame = ctk.CTkFrame(frame_simulacao, fg_color="transparent")
         cadeia_status_frame.grid(row=0, column=4, padx=10, pady=10, sticky="w")
 
-        # --- ATUALIZAÇÃO: Tamanho da fonte aumentado para 22 ---
         self.lbl_cadeia_consumida = ctk.CTkLabel(cadeia_status_frame, text="", text_color=self.cor_consumida, font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_cadeia_consumida.pack(side="left")
         self.lbl_cadeia_restante = ctk.CTkLabel(cadeia_status_frame, text="", font=ctk.CTkFont(size=24, weight="bold"))
         self.lbl_cadeia_restante.pack(side="left")
 
-        # --- ATUALIZAÇÃO: Tamanho da fonte aumentado para 14 ---
         self.lbl_status_simulacao = ctk.CTkLabel(frame_simulacao, text="Status: Aguardando", font=ctk.CTkFont(size=20, weight="bold"))
         self.lbl_status_simulacao.grid(row=0, column=5, padx=10, pady=10, sticky="e")
-        # --- FIM DAS ATUALIZAÇÕES ---
 
 
         # --- Bindings e Inicialização ---
@@ -234,6 +273,27 @@ class TelaPrincipal:
         self.set_active_mode("MOVER")
         self.btn_proximo_passo.configure(state="disabled")
         self._atualizar_widgets_extra_info()
+
+    # --- NOVAS FUNÇÕES DE ZOOM ---
+
+    def on_zoom_change(self, value):
+        """Chamado pelo slider de zoom. Atualiza o nível de zoom e redesenha."""
+        self.zoom_level = float(value)
+        self.desenhar_automato()
+
+    def _logical_to_view(self, x, y):
+        """Converte coordenadas lógicas (do modelo) para visuais (do canvas)."""
+        view_x = x * self.zoom_level
+        view_y = y * self.zoom_level
+        return view_x, view_y
+
+    def _view_to_logical(self, x, y):
+        """Converte coordenadas visuais (do canvas/mouse) para lógicas (do modelo)."""
+        if self.zoom_level == 0: # Evita divisão por zero
+            return x, y
+        logical_x = x / self.zoom_level
+        logical_y = y / self.zoom_level
+        return logical_x, logical_y
 
     # --- FUNÇÕES DE CONTROLE DE MODO ---
     def set_active_mode(self, mode_id):
@@ -358,129 +418,217 @@ class TelaPrincipal:
         elif tipo == "Turing": self.automato = MaquinaTuring()
 
         self.positions = {} # Limpa posições dos estados
+        self.selection_group.clear() # Limpa seleção
         self.parar_simulacao(final_state=False) # Para e reseta a simulação
         self.set_active_mode("MOVER") # Volta para o modo padrão
         self.desenhar_automato() # Limpa e redesenha o canvas
         self._atualizar_widgets_extra_info() # Atualiza widgets extras
 
 
-    # --- AÇÕES DO CANVAS ---
+    # --- AÇÕES DO CANVAS (MODIFICADAS PARA ZOOM E SELEÇÃO MÚLTIPLA) ---
     def clique_canvas(self, event):
         """Processa um clique no canvas de acordo com o modo ativo."""
         mode = self.current_mode
-        estado_clicado = self._get_estado_em(event.x, event.y)
-        transicao_clicada = self._get_transicao_label_em(event.x, event.y)
+        
+        logical_x, logical_y = self._view_to_logical(event.x, event.y)
+        estado_clicado = self._get_estado_em(logical_x, logical_y)
+        transicao_clicada = self._get_transicao_label_em(event.x, event.y) 
 
-        # Se modo ESTADO e clicou em espaço vazio: cria novo estado
+        # --- LÓGICA DO MODO MOVER (SELEÇÃO E GRUPO) ---
+        if mode == "MOVER":
+            if estado_clicado:
+                # 1. Se o estado clicado NÃO está na seleção atual:
+                #    Limpe a seleção antiga e selecione apenas este.
+                if estado_clicado.nome not in self.selection_group:
+                    self.selection_group.clear()
+                    self.selection_group.add(estado_clicado.nome)
+                
+                # 2. Se o estado JÁ está na seleção, não faça nada (permite arrastar o grupo)
+                
+                self.estado_movendo = estado_clicado # Indica que o drag começou *sobre* um estado
+                self.drag_start_pos = (event.x, event.y) # Armazena início do drag
+
+            elif not estado_clicado and not transicao_clicada: # Clicou no vazio
+                self.estado_movendo = None
+                self.selection_group.clear() # Limpa seleção anterior
+                self.selection_box_start = (event.x, event.y) # Inicia o box-select
+                self.drag_start_pos = (event.x, event.y) # Armazena início do drag
+                
+                # Cria o retângulo de seleção
+                if self.selection_box_id:
+                    self.canvas.delete(self.selection_box_id)
+                self.selection_box_id = self.canvas.create_rectangle(
+                    event.x, event.y, event.x, event.y, 
+                    fill="#007acc", stipple="gray25", outline="#007acc" # Azul semi-transparente
+                )
+            
+            self.desenhar_automato() # Redesenha para mostrar nova seleção
+            return # Não processe outros modos
+
+        # --- OUTROS MODOS ---
+        # Se não estava no modo MOVER, limpe a seleção antes de fazer outra coisa
+        self.selection_group.clear() 
+
         if mode == "ESTADO" and not estado_clicado and not transicao_clicada:
             nome_estado = f"q{self.contador_estados}"
-            # Garante nome único
             while nome_estado in self.automato.estados:
                 self.contador_estados += 1; nome_estado = f"q{self.contador_estados}"
 
-            # Se for Moore, pede o output
             if self.tipo_automato.get() == "Moore":
                 dialog = ctk.CTkInputDialog(text="Símbolo de Saída do Estado (vazio=default):", title="Criar Estado Moore")
                 output = dialog.get_input()
-                if output is None: return # Cancelou
-                self.automato.adicionar_estado(nome_estado, event.x, event.y, output=output)
+                if output is None: return
+                self.automato.adicionar_estado(nome_estado, logical_x, logical_y, output=output)
             else:
-                self.automato.adicionar_estado(nome_estado, event.x, event.y)
+                self.automato.adicionar_estado(nome_estado, logical_x, logical_y)
 
-            self.positions[nome_estado] = (event.x, event.y)
+            self.positions[nome_estado] = (logical_x, logical_y) 
             self.contador_estados += 1
-        # Se clicou em um estado: processa de acordo com o modo
+            
         elif estado_clicado:
-            if mode == "TRANSICAO": # Define origem ou cria transição
+            if mode == "TRANSICAO":
                 if not self.origem_transicao:
-                    self.origem_transicao = estado_clicado # Primeiro clique define origem
+                    self.origem_transicao = estado_clicado
                 else:
-                    self._criar_transicao(self.origem_transicao, estado_clicado) # Segundo clique cria
+                    self._criar_transicao(self.origem_transicao, estado_clicado)
                     self.origem_transicao = None
             elif mode == "INICIAL": self.automato.definir_estado_inicial(estado_clicado.nome)
             elif mode == "FINAL": self.automato.alternar_estado_final(estado_clicado.nome)
-            elif mode == "MOVER": self.estado_movendo = estado_clicado # Prepara para arrastar
-            elif mode == "DELETAR": # Deleta o estado
+            elif mode == "DELETAR":
                 nome_a_deletar = estado_clicado.nome
                 self.automato.deletar_estado(nome_a_deletar)
-                self.positions.pop(nome_a_deletar, None) # Remove da lista de posições
-            else: pass # Outros modos não fazem nada ao clicar no estado
-        # Se clicou numa label de transição no modo DELETAR: deleta a transição
+                self.positions.pop(nome_a_deletar, None)
+            
         elif transicao_clicada and mode == "DELETAR":
             origem, destino = transicao_clicada
             if hasattr(self.automato, 'deletar_transicoes_entre'):
                 self.automato.deletar_transicoes_entre(origem, destino)
-            else: # Fallback caso o método não exista no tipo de automato
+            else:
                 print(f"Aviso: Método 'deletar_transicoes_entre' não implementado para {type(self.automato)}")
-        # Se clicou em espaço vazio (e não está no modo ESTADO): cancela criação de transição
+        
         elif not estado_clicado and not transicao_clicada:
             self.origem_transicao = None
 
-        self.desenhar_automato() # Redesenha o autômato após qualquer ação
+        self.desenhar_automato() # Redesenha o autômato
 
     def duplo_clique_canvas(self, event):
         """Processa um duplo clique no canvas (renomear estado ou editar transição no modo MOVER)."""
         mode = self.current_mode
-        estado_clicado = self._get_estado_em(event.x, event.y)
+
+        logical_x, logical_y = self._view_to_logical(event.x, event.y)
+        estado_clicado = self._get_estado_em(logical_x, logical_y)
         transicao_clicada = self._get_transicao_label_em(event.x, event.y)
 
-        # Se deu duplo clique num estado no modo MOVER: renomeia (e edita output se for Moore)
+        # Se deu duplo clique num estado no modo MOVER: renomeia
         if estado_clicado and mode == "MOVER":
             novo_nome = ctk.CTkInputDialog(text="Digite o novo nome do estado:", title="Renomear Estado").get_input()
 
-            # Se for Moore, pede também o novo output
             if self.tipo_automato.get() == "Moore":
                 novo_output = ctk.CTkInputDialog(text="Digite a nova saída do estado:", title="Editar Saída Moore").get_input()
-                if novo_output is not None: # Permite cancelar
+                if novo_output is not None:
                     self.automato.set_output_estado(estado_clicado.nome, novo_output)
 
-            # Se um novo nome foi digitado e é diferente do antigo
             if novo_nome and novo_nome != estado_clicado.nome:
                 try:
-                    pos = self.positions.pop(estado_clicado.nome) # Salva posição
+                    pos = self.positions.pop(estado_clicado.nome)
                     self.automato.renomear_estado(estado_clicado.nome, novo_nome)
-                    self.positions[novo_nome] = pos # Atualiza posição com novo nome
-                except ValueError as e: # Se o nome já existir
+                    self.positions[novo_nome] = pos
+                except ValueError as e:
                     messagebox.showerror("Erro ao Renomear", str(e))
-                    # Restaura a posição se o nome antigo ainda existir (caso de erro)
                     if estado_clicado.nome in self.automato.estados: self.positions[estado_clicado.nome] = pos
             self.desenhar_automato()
-        # Se deu duplo clique numa label de transição no modo MOVER: edita a transição
+        
         elif transicao_clicada and mode == "MOVER":
             origem, destino = transicao_clicada
             self._editar_label_transicao(origem, destino)
 
+    def arrastar_canvas(self, event):
+        """Move o estado selecionado ou o grupo de seleção."""
+        if self.current_mode != "MOVER" or not self.drag_start_pos:
+            return # Só no modo MOVER e se um drag foi iniciado
+
+        # 1. Calcular Delta (mudança)
+        # Delta (mudança) em coordenadas VISUAIS
+        delta_x = event.x - self.drag_start_pos[0]
+        delta_y = event.y - self.drag_start_pos[1]
+        
+        # Delta em coordenadas LÓGICAS (dividido pelo zoom)
+        logical_delta_x = delta_x / self.zoom_level
+        logical_delta_y = delta_y / self.zoom_level
+
+        # 2. Se está fazendo um box-select (clicou no vazio)
+        if self.selection_box_start:
+            # 2a. Atualizar o retângulo visual
+            start_x, start_y = self.selection_box_start
+            self.canvas.coords(self.selection_box_id, start_x, start_y, event.x, event.y)
+            
+            # 2b. Converter caixa visual para lógica
+            log_start_x, log_start_y = self._view_to_logical(start_x, start_y)
+            log_end_x, log_end_y = self._view_to_logical(event.x, event.y)
+            
+            # Garante que x1 < x2 e y1 < y2 para a lógica de "dentro"
+            log_box_x1 = min(log_start_x, log_end_x)
+            log_box_y1 = min(log_start_y, log_end_y)
+            log_box_x2 = max(log_start_x, log_end_x)
+            log_box_y2 = max(log_start_y, log_end_y)
+
+            # 2c. Recalcular o grupo de seleção (mas não mover ainda)
+            self.selection_group.clear()
+            for nome, (sx, sy) in self.positions.items():
+                if (log_box_x1 <= sx <= log_box_x2) and (log_box_y1 <= sy <= log_box_y2):
+                    self.selection_group.add(nome)
+
+        # 3. Mover *todos* os estados no grupo de seleção
+        # (Se for drag-de-estado-único, o grupo só tem 1 item)
+        # (Se for box-select, o grupo tem N itens, e eles são movidos *enquanto* a caixa é desenhada)
+        for nome in self.selection_group:
+            old_log_x, old_log_y = self.positions[nome]
+            self.positions[nome] = (old_log_x + logical_delta_x, old_log_y + logical_delta_y)
+
+        # 4. Atualizar o ponto de início do drag para o próximo evento
+        self.drag_start_pos = (event.x, event.y)
+        
+        self.desenhar_automato() # Redesenha
+
+    def soltar_canvas(self, event):
+        """Finaliza o arraste do estado ou da seleção."""
+        # Reseta os estados de drag/seleção
+        self.estado_movendo = None
+        self.drag_start_pos = None
+        self.selection_box_start = None # Importante
+        
+        if self.selection_box_id:
+            self.canvas.delete(self.selection_box_id)
+            self.selection_box_id = None
+        
+        # Não limpe o self.selection_group. Ele persiste até o próximo clique.
+        
+        self.desenhar_automato() # Redesenha no estado final
+
     def _editar_label_transicao(self, origem, destino):
         """Abre um diálogo para editar os símbolos de uma transição (exceto AP, Mealy, Turing)."""
         tipo = self.tipo_automato.get()
-        # Edição por duplo clique não implementada para tipos complexos
         if tipo in ["AP", "Mealy", "Turing"]:
             messagebox.showinfo("Editar Transição", f"Edição de transições {tipo} não implementada com duplo clique. Use Deletar e Criar.", parent=self.master)
             return
 
-        # Pega os símbolos atuais da transição
         simbolos_atuais = set()
         agrupado = self._agrupar_transicoes()
         if origem in agrupado and destino in agrupado[origem]:
             simbolos_atuais = agrupado[origem][destino]
 
-        # Formata para exibição no diálogo ('e' para epsilon)
         label_atual = ",".join(sorted(list(s.replace(EPSILON, "e") for s in simbolos_atuais)))
 
-        # Abre diálogo preenchido com os símbolos atuais
         dialog = ctk.CTkInputDialog(text="Símbolo(s) (use 'e' para ε, vírgula para separar):", title="Editar Transição")
         dialog.entry.insert(0, label_atual)
         simbolo_input = dialog.get_input()
 
-        # Se o usuário confirmou
         if simbolo_input is not None:
-            # Deleta as transições antigas entre esses estados
             if hasattr(self.automato, 'deletar_transicoes_entre'):
                 self.automato.deletar_transicoes_entre(origem, destino)
-            # Adiciona as novas transições
             novos_simbolos = [s.strip() for s in simbolo_input.split(',') if s.strip()]
             for s in novos_simbolos:
-                simbolo_final = EPSILON if s == 'e' else s # Converte 'e' de volta para epsilon
+                simbolo_final = EPSILON if s == 'e' else s
                 self.automato.adicionar_transicao(origem, simbolo_final, destino)
             self.desenhar_automato()
 
@@ -489,7 +637,6 @@ class TelaPrincipal:
         """Abre o diálogo apropriado para criar uma transição entre dois estados."""
         tipo = self.tipo_automato.get()
 
-        # Diálogo simples para AFD, AFN, Moore
         if tipo in ["AFD", "AFN", "Moore"]:
             dialog = ctk.CTkInputDialog(text="Símbolo(s) (use 'e' para ε, vírgula para separar):", title=f"Criar Transição {tipo}")
             simbolo_input = dialog.get_input()
@@ -499,14 +646,12 @@ class TelaPrincipal:
                     simbolo_final = EPSILON if s == 'e' else s
                     self.automato.adicionar_transicao(origem.nome, simbolo_final, destino.nome)
 
-        # Diálogo específico para AP
         elif tipo == "AP":
             dlg = TransicaoPilhaDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget)
-            self.master.wait_window(dlg) # Espera o diálogo fechar
-            if dlg.resultado: # Se não foi cancelado
+            self.master.wait_window(dlg)
+            if dlg.resultado:
                 self.automato.adicionar_transicao(origem.nome, dlg.resultado['entrada'], dlg.resultado['pop'], destino.nome, dlg.resultado['push'])
 
-        # Diálogo específico para Mealy
         elif tipo == "Mealy":
             dlg = TransicaoMealyDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget)
             self.master.wait_window(dlg)
@@ -515,36 +660,28 @@ class TelaPrincipal:
                 output = EPSILON if dlg.resultado['output'] == 'e' else dlg.resultado['output']
                 self.automato.adicionar_transicao(origem.nome, simbolo, destino.nome, output)
 
-        # Diálogo específico para Turing
         elif tipo == "Turing":
             dlg = TransicaoTuringDialog(self.master, origem.nome, destino.nome, self.style_dialog_widget)
             self.master.wait_window(dlg)
             if dlg.resultado:
                 self.automato.adicionar_transicao(origem.nome, dlg.resultado['lido'], destino.nome, dlg.resultado['escrito'], dlg.resultado['dir'])
 
-        self.desenhar_automato() # Redesenha após criar
+        self.desenhar_automato()
 
-
-    def arrastar_canvas(self, event):
-        """Move o estado selecionado enquanto o mouse é arrastado."""
-        if self.estado_movendo and self.estado_movendo.nome in self.positions:
-            self.positions[self.estado_movendo.nome] = (event.x, event.y)
-            self.desenhar_automato() # Redesenha a cada movimento
-    def soltar_canvas(self, event):
-        """Finaliza o arraste do estado."""
-        self.estado_movendo = None
 
     def _get_estado_em(self, x, y):
-        """Verifica se as coordenadas (x, y) estão dentro de algum estado desenhado."""
+        """Verifica se as coordenadas (x, y) estão dentro de algum estado desenhado.
+           NOTA: Recebe coordenadas LÓGICAS."""
         for nome, (sx, sy) in self.positions.items():
-            # Calcula a distância do clique ao centro do estado
-            if (sx - x)**2 + (sy - y)**2 <= (STATE_RADIUS + 2)**2: # Usa raio com margem
+            # Calcula a distância do clique ao centro do estado (em coords lógicas)
+            if (sx - x)**2 + (sy - y)**2 <= (STATE_RADIUS + 2)**2: # Usa raio lógico
                 if nome in self.automato.estados: return self.automato.estados[nome]
         return None
 
     def _get_transicao_label_em(self, x, y):
-        """Verifica se as coordenadas (x, y) estão sobre alguma label de transição."""
-        # Pega todos os itens do canvas na área do clique
+        """Verifica se as coordenadas (x, y) estão sobre alguma label de transição.
+           NOTA: Recebe coordenadas VISUAIS (event.x, event.y)."""
+        # Pega todos os itens do canvas na área do clique (visual)
         items = self.canvas.find_overlapping(x-1, y-1, x+1, y+1)
         # Itera de trás para frente (itens desenhados por último ficam na frente)
         for item_id in reversed(items):
@@ -558,7 +695,7 @@ class TelaPrincipal:
                         if len(parts) == 3: return parts[1], parts[2] # Retorna (origem, destino)
         return None
 
-    # --- FUNÇÕES DE DESENHO ---
+    # --- FUNÇÕES DE DESENHO (MODIFICADAS PARA ZOOM) ---
     def desenhar_automato(self, estados_ativos=None, transicoes_ativas=None, extra_info_str=None):
             """Desenha o autômato completo no canvas, destacando estados/transições ativas."""
             try:
@@ -569,48 +706,56 @@ class TelaPrincipal:
                 pares_processados = set() # Para evitar desenhar transições duplas duas vezes
                 tipo = self.tipo_automato.get()
 
+                # --- VALORES COM ZOOM ---
+                scaled_radius = STATE_RADIUS * self.zoom_level
+                scaled_font = (FONT[0], max(1, int(FONT[1] * self.zoom_level)))
+                bold_scaled_font = (FONT[0], max(1, int(FONT[1] * self.zoom_level)), "bold")
+                
                 # --- DESENHAR TRANSIÇÕES ---
                 for origem_nome, destino_info in agrupado.items():
                     if origem_nome not in self.automato.estados or origem_nome not in self.positions: continue
                     origem = self.automato.estados[origem_nome]
-                    x1, y1 = self.positions[origem_nome]
+                    
+                    # Converte para Coords Visuais
+                    x1, y1 = self._logical_to_view(*self.positions[origem_nome])
 
                     for destino_nome, simbolos in destino_info.items():
                         if destino_nome not in self.automato.estados or destino_nome not in self.positions: continue
                         destino = self.automato.estados[destino_nome]
-                        x2, y2 = self.positions[destino_nome]
+                        
+                        # Converte para Coords Visuais
+                        x2, y2 = self._logical_to_view(*self.positions[destino_nome])
+                        
                         par = tuple(sorted((origem_nome, destino_nome))) # Identificador único do par
 
                         # Define cor e largura da linha (destaca se ativa)
                         cor_linha = self.canvas_transicao_ativa if (origem_nome, destino_nome) in transicoes_ativas else self.canvas_fg_color
                         largura = 2.5 if cor_linha == self.canvas_transicao_ativa else 1.5
-                        # Cria a label para exibição (símbolos JFLAP empilhados)
-                        label_exibicao = "\n".join(sorted(list(simbolos))) # Usa os símbolos já formatados
+                        label_exibicao = "\n".join(sorted(list(simbolos))) 
                         label_tag = f"label_{origem_nome}_{destino_nome}" # Tag para identificar a label
 
-                        # Define a fonte padrão para transições (preto, negrito)
-                        transicao_font = (FONT[0], FONT[1], "bold")
+                        # (Use a fonte com zoom)
+                        transicao_font = bold_scaled_font
                         transicao_color = self.canvas_fg_color # Preto
 
                         if origem_nome == destino_nome: # Loop (transição para o próprio estado)
-                            # Desenha o texto da transição ACIMA do arco
                             text_id = self.canvas.create_text(
-                                x1, y1 - 75, # Posição Y ajustada
+                                x1, y1 - (75 * self.zoom_level), # Posição Y com zoom
                                 text=label_exibicao,
-                                fill=transicao_color, # Cor preta
-                                font=transicao_font,  # Fonte negrito
+                                fill=transicao_color, 
+                                font=transicao_font,  # Fonte com zoom
                                 anchor=tk.CENTER,
                                 tags=("transition_label_text", label_tag)
                             )
-                            # Desenha o arco do loop
-                            p1_x, p1_y = x1 - 10, y1 - STATE_RADIUS
-                            c1_x, c1_y = x1 - 40, y1 - (STATE_RADIUS + 35)
-                            c2_x, c2_y = x1 + 40, y1 - (STATE_RADIUS + 35)
-                            p2_x, p2_y = x1 + 10, y1 - STATE_RADIUS
+                            # Desenha o arco do loop (tudo com zoom)
+                            p1_x, p1_y = x1 - (10*self.zoom_level), y1 - scaled_radius
+                            c1_x, c1_y = x1 - (40*self.zoom_level), y1 - (scaled_radius + 35*self.zoom_level)
+                            c2_x, c2_y = x1 + (40*self.zoom_level), y1 - (scaled_radius + 35*self.zoom_level)
+                            p2_x, p2_y = x1 + (10*self.zoom_level), y1 - scaled_radius
+                            
                             self.canvas.create_line(p1_x, p1_y, c1_x, c1_y, c2_x, c2_y, p2_x, p2_y,
                                                     smooth=True, arrow=tk.LAST,
                                                     fill=cor_linha, width=largura, tags="linha_transicao")
-                            # Armazena a área da label
                             bbox = self.canvas.bbox(text_id)
                             if bbox: self.label_hitboxes[label_tag] = bbox
 
@@ -619,9 +764,10 @@ class TelaPrincipal:
                             cor_linha_volta = self.canvas_transicao_ativa if (destino_nome, origem_nome) in transicoes_ativas else self.canvas_fg_color
                             largura_volta = 2.5 if cor_linha_volta == self.canvas_transicao_ativa else 1.5
                             label_tag_volta = f"label_{destino_nome}_{origem_nome}"
-                            label_volta_interna = ",".join(sorted(list(agrupado[destino_nome][origem_nome]))) # Usa vírgula para passar para _desenhar_linha_curva
-                            label_ida_interna = ",".join(sorted(list(simbolos))) # Usa vírgula para passar para _desenhar_linha_curva
-                            # Desenha as duas linhas curvas
+                            label_volta_interna = ",".join(sorted(list(agrupado[destino_nome][origem_nome]))) 
+                            label_ida_interna = ",".join(sorted(list(simbolos))) 
+                            
+                            # (A função _desenhar_linha_curva também deve ser modificada)
                             self._desenhar_linha_curva(origem, destino, label_ida_interna, 30, cor_linha, largura, label_tag)
                             self._desenhar_linha_curva(destino, origem, label_volta_interna, 30, cor_linha_volta, largura_volta, label_tag_volta)
                             pares_processados.add(par)
@@ -629,21 +775,24 @@ class TelaPrincipal:
                             dx, dy = x2 - x1, y2 - y1
                             dist = math.hypot(dx, dy) or 1
                             ux, uy = dx/dist, dy/dist
-                            start_x, start_y = x1 + ux * STATE_RADIUS, y1 + uy * STATE_RADIUS
-                            end_x, end_y = x2 - ux * STATE_RADIUS, y2 - uy * STATE_RADIUS
-                            # Desenha a linha reta
+                            
+                            # (Usa raio com zoom)
+                            start_x, start_y = x1 + ux * scaled_radius, y1 + uy * scaled_radius
+                            end_x, end_y = x2 - ux * scaled_radius, y2 - uy * scaled_radius
+                            
                             self.canvas.create_line(start_x, start_y, end_x, end_y,
                                                     arrow=tk.LAST,
                                                     fill=cor_linha, width=largura, tags="linha_transicao")
-                            # Posição da label
-                            text_x = (start_x+end_x)/2 - uy*15
-                            text_y = (start_y+end_y)/2 + ux*15
-                            # Desenha a label empilhada
+                            
+                            # Posição da label (offset com zoom)
+                            text_x = (start_x+end_x)/2 - uy*(15*self.zoom_level)
+                            text_y = (start_y+end_y)/2 + ux*(15*self.zoom_level)
+                            
                             text_id = self.canvas.create_text(
                                 text_x, text_y,
                                 text=label_exibicao,
-                                fill=transicao_color, # Cor preta
-                                font=transicao_font,  # Fonte negrito
+                                fill=transicao_color, 
+                                font=transicao_font,  # Fonte com zoom
                                 anchor=tk.CENTER,
                                 tags=("transition_label_text", label_tag)
                             )
@@ -653,44 +802,66 @@ class TelaPrincipal:
                 # --- DESENHAR ESTADOS ---
                 for nome, estado in self.automato.estados.items():
                     if nome not in self.positions: continue
-                    x, y = self.positions[nome]
-                    cor_borda = self.canvas_estado_ativo if estados_ativos and nome in estados_ativos else self.canvas_fg_color
-                    self.canvas.create_oval(x - STATE_RADIUS, y - STATE_RADIUS, x + STATE_RADIUS, y + STATE_RADIUS,
+                    
+                    # Converte para Coords Visuais
+                    x, y = self._logical_to_view(*self.positions[nome])
+                    
+                    # --- LÓGICA DE COR MODIFICADA ---
+                    cor_borda = self.canvas_fg_color # Padrão: Preto
+
+                    if estados_ativos and nome in estados_ativos:
+                        cor_borda = self.canvas_estado_ativo # Vermelho (simulação)
+                    elif nome in self.selection_group:
+                        cor_borda = "#007acc" # Azul (selecionado)
+                    # --- FIM DA MODIFICAÇÃO ---
+                    
+                    # (Usa raio com zoom)
+                    self.canvas.create_oval(x - scaled_radius, y - scaled_radius, x + scaled_radius, y + scaled_radius,
                                             fill=self.canvas_estado_fill, outline=cor_borda,
-                                            width=3 if cor_borda == self.canvas_estado_ativo else 2,
+                                            # Aumenta a borda se estiver selecionado ou ativo
+                                            width=3 if (cor_borda != self.canvas_fg_color) else 2,
                                             tags=("estado_circulo", f"estado_{nome}"))
 
                     texto_estado = nome
                     if tipo == "Moore" and estado.output:
                         texto_estado = f"{nome}\n({estado.output})"
-                    self.canvas.create_text(x, y, text=texto_estado, font=FONT,
+                    
+                    # (Usa fonte com zoom)
+                    self.canvas.create_text(x, y, text=texto_estado, font=scaled_font,
                                             fill=self.canvas_estado_text, justify=tk.CENTER,
                                             tags=("estado_texto", f"estado_{nome}_texto"))
 
                     if estado.is_final:
-                        self.canvas.create_oval(x - (STATE_RADIUS - 5), y - (STATE_RADIUS - 5),
-                                                x + (STATE_RADIUS - 5), y + (STATE_RADIUS - 5),
+                        # (Usa raio/offset com zoom)
+                        final_inner_radius = max(1, scaled_radius - (5 * self.zoom_level))
+                        self.canvas.create_oval(x - final_inner_radius, y - final_inner_radius,
+                                                x + final_inner_radius, y + final_inner_radius,
                                                 outline=cor_borda, width=1,
                                                 tags=("estado_final_circulo", f"estado_{nome}"))
                     if estado.is_inicial:
-                        self.canvas.create_line(x - STATE_RADIUS - 20, y, x - STATE_RADIUS, y,
+                        # (Usa raio/offset com zoom)
+                        self.canvas.create_line(x - scaled_radius - (20 * self.zoom_level), y, x - scaled_radius, y,
                                                 arrow=tk.LAST,
                                                 width=2, fill=self.canvas_fg_color,
                                                 tags=("estado_inicial_seta", f"estado_{nome}"))
 
                 # --- OUTROS ELEMENTOS ---
                 if self.origem_transicao and self.origem_transicao.nome in self.positions:
-                    x, y = self.positions[self.origem_transicao.nome]
-                    self.canvas.create_oval(x-STATE_RADIUS-3, y-STATE_RADIUS-3, x+STATE_RADIUS+3, y+STATE_RADIUS+3,
+                    # Converte para Coords Visuais
+                    x, y = self._logical_to_view(*self.positions[self.origem_transicao.nome])
+                    # (Usa raio com zoom)
+                    self.canvas.create_oval(x-scaled_radius-3, y-scaled_radius-3, x+scaled_radius+3, y+scaled_radius+3,
                                             outline="#33cc33", width=2, dash=(4, 4),
                                             tags="origem_transicao_destaque")
 
                 if extra_info_str is not None:
+                    # (Opcional: escalar a fonte do texto da fita/pilha também)
+                    scaled_info_font = (FONT[0], max(1, int(FONT[1] * self.zoom_level)))
                     tag = "Pilha: " if tipo == "AP" else ("Fita: " if tipo == "Turing" else "")
                     if tag:
                         bg_rect = self.canvas.create_rectangle(10, 10, 10 + len(tag + extra_info_str) * 8 + 10, 40,
                                                             fill="#f0f0f0", outline="", tags="extra_info_bg")
-                        info_text = self.canvas.create_text(15, 25, text=f"{tag}{extra_info_str}", font=FONT,
+                        info_text = self.canvas.create_text(15, 25, text=f"{tag}{extra_info_str}", font=scaled_info_font,
                                                             fill=self.canvas_fg_color, anchor="w", tags="extra_info_text")
                         text_bbox = self.canvas.bbox(info_text)
                         if text_bbox:
@@ -702,47 +873,49 @@ class TelaPrincipal:
     def _desenhar_linha_curva(self, origem, destino, label_original_virgula, fator, cor_linha, largura, label_tag):
             """Desenha uma linha curva entre dois estados com a label empilhada, preta e negrito."""
             if origem.nome not in self.positions or destino.nome not in self.positions: return
-            x1, y1 = self.positions[origem.nome]
-            x2, y2 = self.positions[destino.nome]
+            
+            # --- MUDANÇAS AQUI ---
+            x1, y1 = self._logical_to_view(*self.positions[origem.nome])
+            x2, y2 = self._logical_to_view(*self.positions[destino.nome])
+            
+            scaled_radius = STATE_RADIUS * self.zoom_level
+            bold_scaled_font = (FONT[0], max(1, int(FONT[1] * self.zoom_level)), "bold")
+            scaled_fator = fator * self.zoom_level
+            scaled_text_offset = 15 * self.zoom_level
 
             dx, dy = x2 - x1, y2 - y1
             dist = math.hypot(dx, dy) or 1
             nx, ny = -dy/dist, dx/dist
             ux, uy = dx/dist, dy/dist
 
-            start_x, start_y = x1 + ux * STATE_RADIUS, y1 + uy * STATE_RADIUS
-            end_x, end_y = x2 - ux * STATE_RADIUS, y2 - uy * STATE_RADIUS
+            start_x, start_y = x1 + ux * scaled_radius, y1 + uy * scaled_radius
+            end_x, end_y = x2 - ux * scaled_radius, y2 - uy * scaled_radius
 
             mid_x, mid_y = (start_x + end_x) / 2, (start_y + end_y) / 2
-            ctrl_x, ctrl_y = mid_x + nx * fator, mid_y + ny * fator
+            ctrl_x, ctrl_y = mid_x + nx * scaled_fator, mid_y + ny * scaled_fator
 
             self.canvas.create_line(start_x, start_y, ctrl_x, ctrl_y, end_x, end_y,
                                     smooth=True, arrow=tk.LAST,
                                     fill=cor_linha, width=largura, tags="linha_transicao")
 
-            text_x = ctrl_x + nx * 15
-            text_y = ctrl_y + ny * 15
+            text_x = ctrl_x + nx * scaled_text_offset
+            text_y = ctrl_y + ny * scaled_text_offset
 
-            # Define a fonte e cor padrão para transições
-            transicao_font = (FONT[0], FONT[1], "bold")
+            transicao_font = bold_scaled_font
             transicao_color = self.canvas_fg_color # Preto
 
-            # --- MODIFICAÇÃO PARA EMPILHAR (usando label_original_virgula) ---
-            # Separa os símbolos pela vírgula (formato interno)
-            simbolos_lista = label_original_virgula.split(',') # Label já deve estar com formato JFLAP visualmente (ex: ε, a;b) mas junta com vírgula para passar aqui
-            # Junta os símbolos com quebra de linha ('\n') para empilhar
-            label_empilhada = "\n".join(sorted(simbolos_lista)) # Ordena para consistência visual
+            simbolos_lista = label_original_virgula.split(',') 
+            label_empilhada = "\n".join(sorted(simbolos_lista)) 
 
-            # Cria o texto usando a label empilhada, preta e negrito
             text_id = self.canvas.create_text(
                 text_x, text_y,
                 text=label_empilhada,
-                fill=transicao_color, # Cor preta
-                font=transicao_font,  # Fonte negrito
+                fill=transicao_color,
+                font=transicao_font,  # Usa fonte com zoom
                 anchor=tk.CENTER,
                 tags=("transition_label_text", label_tag)
             )
-            # --- FIM DA MODIFICAÇÃO ---
+            # --- FIM DAS MUDANÇAS ---
 
             bbox = self.canvas.bbox(text_id)
             if bbox: self.label_hitboxes[label_tag] = bbox
@@ -775,7 +948,10 @@ class TelaPrincipal:
                    # Formato JFLAP: entrada/saída (usa epsilon para vazio)
                    in_char = epsilon_char if simbolo == EPSILON else simbolo
                    out_char = epsilon_char if output == EPSILON else output
-                   label = f"{in_char}/{out_char}"
+                   
+                   # --- MUDANÇA (Formatação JFLAP) ---
+                   label = f"{in_char} ; {out_char}" # Adiciona espaços
+                   
                    agrupado[origem][destino].add(label)
         elif tipo == "Turing":
              simbolo_branco_automato = getattr(self.automato, 'simbolo_branco', '☐')
@@ -783,7 +959,10 @@ class TelaPrincipal:
                    # Formato JFLAP: lido;escrito,direção (usa ☐ para branco)
                    read_char = blank_char if lido == simbolo_branco_automato else lido
                    write_char = blank_char if escrito == simbolo_branco_automato else escrito
-                   label = f"{read_char};{write_char},{direcao}"
+                   
+                   # --- MUDANÇA (Formatação JFLAP) ---
+                   label = f"{read_char} ; {write_char} , {direcao}" # Adiciona espaços
+                   
                    agrupado[origem][destino].add(label)
         else: # AFD, AFN, Moore
             for (origem, simbolo), destinos in trans_dict.items():
@@ -848,7 +1027,7 @@ class TelaPrincipal:
         # Se não parou em um estado final (aceita/rejeita), limpa tudo
         if not final_state:
             self.lbl_status_simulacao.configure(text="Status: Aguardando", text_color=self.default_fg_color)
-            self.lbl_cadeia_consumida.configure(text="")
+            self.lbl_cadeia_consumida.configure(text="", text_color=self.cor_consumida) # Reseta cor
             self.lbl_cadeia_restante.configure(text="", text_color=self.default_fg_color)
             self.lbl_output_valor.configure(text="")
             self.lbl_tape_valor.configure(text="")
@@ -879,8 +1058,19 @@ class TelaPrincipal:
                     print(f"Erro ao verificar estado final: {e}")
 
                 # Atualiza o status final (Aceita/Não Aceita)
-                if aceitou: self.lbl_status_simulacao.configure(text="Palavra Aceita", text_color=self.cor_aceita)
-                else: self.lbl_status_simulacao.configure(text="Palavra Não Aceita", text_color=self.cor_rejeita)
+                if aceitou: 
+                    self.lbl_status_simulacao.configure(text="Palavra Aceita", text_color=self.cor_aceita)
+                    # --- MUDANÇA AQUI ---
+                    if tipo != "Turing":
+                        self.lbl_cadeia_consumida.configure(text=self.entrada_cadeia.get(), text_color=self.cor_aceita)
+                        self.lbl_cadeia_restante.configure(text="")
+                else: 
+                    self.lbl_status_simulacao.configure(text="Palavra Não Aceita", text_color=self.cor_rejeita)
+                    # --- MUDANÇA AQUI ---
+                    if tipo != "Turing":
+                        # Mostra a cadeia inteira em vermelho se rejeitou no final
+                        self.lbl_cadeia_consumida.configure(text=self.entrada_cadeia.get(), text_color=self.cor_rejeita)
+                        self.lbl_cadeia_restante.configure(text="")
 
             self.parar_simulacao(final_state=True) # Para a simulação, mantendo o status final
             return
@@ -909,8 +1099,11 @@ class TelaPrincipal:
             # Calcula o ponto de divisão entre consumido e restante
             split_point = len(cadeia_original) - len(cadeia_restante)
             cadeia_consumida = cadeia_original[:split_point]
-            self.lbl_cadeia_consumida.configure(text=cadeia_consumida)
+            
+            # --- MUDANÇA AQUI --- (Define a cor verde para "executando")
+            self.lbl_cadeia_consumida.configure(text=cadeia_consumida, text_color=self.cor_consumida) 
             self.lbl_cadeia_restante.configure(text=cadeia_restante, text_color=self.default_fg_color)
+            
         elif tipo == "Turing": # Turing não usa essas labels
              self.lbl_cadeia_consumida.configure(text="")
              self.lbl_cadeia_restante.configure(text="")
@@ -919,27 +1112,244 @@ class TelaPrincipal:
         if status == "executando":
             # Redesenha destacando estado(s) e transição(ões) atuais
             self.desenhar_automato(passo_info["estado_atual"], passo_info.get("transicao_ativa"), extra_info_canvas)
+        
         elif status == "aceita":
             self.lbl_status_simulacao.configure(text="Palavra Aceita", text_color=self.cor_aceita)
-            # Mostra toda a cadeia como consumida
-            if tipo != "Turing": self.lbl_cadeia_consumida.configure(text=self.entrada_cadeia.get()); self.lbl_cadeia_restante.configure(text="")
+            # --- MUDANÇA AQUI --- (Define a cor verde para "aceita")
+            if tipo != "Turing": 
+                self.lbl_cadeia_consumida.configure(text=self.entrada_cadeia.get(), text_color=self.cor_aceita)
+                self.lbl_cadeia_restante.configure(text="")
             self.desenhar_automato(passo_info.get("estado_atual"), passo_info.get("transicao_ativa"), extra_info_canvas)
             self.parar_simulacao(final_state=True) # Para mantendo o status
+        
         elif status == "rejeita":
             self.lbl_status_simulacao.configure(text="Palavra Não Aceita", text_color=self.cor_rejeita)
+            
+            # --- MUDANÇA AQUI --- (Define a cor vermelha para "rejeita")
+            if "cadeia_restante" in passo_info and tipo != "Turing":
+                # Pega a cadeia que foi consumida até a falha
+                cadeia_restante = passo_info['cadeia_restante']
+                cadeia_original = self.entrada_cadeia.get()
+                split_point = len(cadeia_original) - len(cadeia_restante)
+                cadeia_consumida = cadeia_original[:split_point]
+                
+                # Define a cor da parte consumida para VERMELHO
+                self.lbl_cadeia_consumida.configure(text=cadeia_consumida, text_color=self.cor_rejeita)
+                # A parte restante pode ficar na cor padrão
+                self.lbl_cadeia_restante.configure(text=cadeia_restante, text_color=self.default_fg_color)
+            # --- FIM DA MODIFICAÇÃO ---
+
             self.desenhar_automato(passo_info.get("estado_atual"), passo_info.get("transicao_ativa"), extra_info_canvas)
             self.parar_simulacao(final_state=True) # Para mantendo o status
+        
         elif status == "finalizado": # Usado por Moore/Mealy
             self.lbl_status_simulacao.configure(text="Processamento Concluído", text_color=self.cor_finalizado)
-            if tipo != "Turing": self.lbl_cadeia_consumida.configure(text=self.entrada_cadeia.get()); self.lbl_cadeia_restante.configure(text="")
+            if tipo != "Turing": 
+                self.lbl_cadeia_consumida.configure(text=self.entrada_cadeia.get(), text_color=self.cor_consumida) # Verde
+                self.lbl_cadeia_restante.configure(text="")
             self.desenhar_automato(passo_info.get("estado_atual"), passo_info.get("transicao_ativa"), extra_info_canvas)
             self.parar_simulacao(final_state=True) # Para mantendo o status
+        
         elif status == "erro": # Erro durante a simulação
             messagebox.showerror("Erro", passo_info["mensagem"])
             self.parar_simulacao() # Para e reseta a UI
 
 
-    # --- MÉTODOS DE EXPORTAÇÃO ---
+    # --- MÉTODOS DE EXPORTAÇÃO E IMPORTAÇÃO ---
+
+    def importar_de_jff(self):
+        """Abre um arquivo .jff e carrega o autômato no simulador."""
+        try:
+            filepath = filedialog.askopenfilename(
+                filetypes=[("JFLAP files", "*.jff"), ("All files", "*.*")],
+                title="Abrir Arquivo JFF",
+                parent=self.master
+            )
+            if not filepath:
+                return # Usuário cancelou
+
+            tree = ET.parse(filepath)
+            root = tree.getroot()
+
+            # 1. Obter o tipo de autômato
+            jflap_type_node = root.find("type")
+            if jflap_type_node is None:
+                raise ValueError("Arquivo JFF inválido: tag <type> não encontrada.")
+            jflap_type = jflap_type_node.text.lower()
+            
+            automaton_node = root.find("automaton")
+            if automaton_node is None:
+                raise ValueError("Arquivo JFF inválido: tag <automaton> não encontrada.")
+
+            # Mapeia o tipo JFLAP para o tipo do nosso simulador
+            tipo_simulador = ""
+            if jflap_type == "fa":
+                tipo_simulador = "AFD" # Padrão, verificaremos AFN depois
+            elif jflap_type == "pda":
+                tipo_simulador = "AP"
+            elif jflap_type == "turing":
+                tipo_simulador = "Turing"
+            elif jflap_type == "mealy":
+                # JFLAP 'mealy' pode ser Moore ou Mealy.
+                # Verificamos se algum estado tem a tag <output> (sinal de Moore)
+                if automaton_node.find("state/output") is not None:
+                     tipo_simulador = "Moore"
+                else:
+                     tipo_simulador = "Mealy"
+            else:
+                raise ValueError(f"Tipo de autômato JFLAP '{jflap_type}' não suportado.")
+
+            # 2. Limpar a tela e configurar o novo tipo de autômato
+            self.tipo_automato.set(tipo_simulador)
+            self.mudar_tipo_automato() # Isso chama limpar_tela() e cria o self.automato correto
+
+            # 3. Mapear IDs de estado para nomes (JFLAP usa IDs)
+            id_to_name = {}
+            states_nodes = automaton_node.findall("state")
+            
+            # Mapa para guardar dados do estado (para recarregar se for AFN)
+            state_data_map = {} # id -> {name, x, y, is_initial, is_final, output}
+            self.contador_estados = 0 # Reseta o contador
+
+            for state in states_nodes:
+                state_id = state.get("id")
+                state_name = state.get("name")
+                if not state_name:
+                    state_name = f"q{self.contador_estados}"
+                # Garante nome único
+                while state_name in self.automato.estados or state_name in (d['name'] for d in state_data_map.values()):
+                     self.contador_estados += 1
+                     state_name = f"q{self.contador_estados}"
+
+                id_to_name[state_id] = state_name
+                
+                x_node = state.find("x")
+                y_node = state.find("y")
+                x_pos = float(x_node.text) if x_node is not None and x_node.text else (50.0 + int(state_id) * 80)
+                y_pos = float(y_node.text) if y_node is not None and y_node.text else 50.0
+                
+                # Armazena dados para processamento
+                state_data_map[state_id] = {
+                    'name': state_name,
+                    'x': x_pos,
+                    'y': y_pos,
+                    'is_initial': state.find("initial") is not None,
+                    'is_final': state.find("final") is not None,
+                    'output': state.find("output").text if state.find("output") is not None else "" # Para Moore
+                }
+
+            # 4. Adicionar Estados
+            for state_id, data in state_data_map.items():
+                self.positions[data['name']] = (data['x'], data['y'])
+                output_val = data['output'] if tipo_simulador == "Moore" else ""
+                
+                if tipo_simulador == "Moore":
+                     self.automato.adicionar_estado(data['name'], data['x'], data['y'], output=output_val)
+                else:
+                     self.automato.adicionar_estado(data['name'], data['x'], data['y'])
+
+            # 5. Definir estados Iniciais e Finais
+            for state_id, data in state_data_map.items():
+                 if data['is_initial']:
+                     self.automato.definir_estado_inicial(data['name'])
+                 if data['is_final']:
+                     self.automato.alternar_estado_final(data['name'])
+
+            # 6. Adicionar Transições
+            transition_nodes = automaton_node.findall("transition")
+            
+            # Detectar se "fa" é na verdade um AFN
+            if tipo_simulador == "AFD":
+                transitions_check = {}
+                is_afn = False
+                for trans in transition_nodes:
+                    from_id = trans.find("from").text
+                    read_node = trans.find("read")
+                    simbolo = EPSILON if read_node is None or read_node.text is None else read_node.text
+                    chave = (from_id, simbolo)
+                    
+                    if chave in transitions_check:
+                        is_afn = True # Múltiplas transições para o mesmo símbolo
+                        break
+                    transitions_check[chave] = True
+                    if simbolo == EPSILON:
+                        is_afn = True # Tem transição épsilon
+                        break
+                
+                if is_afn:
+                    print("Autômato 'fa' detectado como AFN. Recarregando como AFN.")
+                    tipo_simulador = "AFN"
+                    self.tipo_automato.set("AFN")
+                    self.mudar_tipo_automato()
+                    # Readiciona os estados no novo automato AFN
+                    for state_id, data in state_data_map.items():
+                        self.positions[data['name']] = (data['x'], data['y'])
+                        self.automato.adicionar_estado(data['name'], data['x'], data['y'])
+                    # Readiciona inicial/final
+                    for state_id, data in state_data_map.items():
+                         if data['is_initial']:
+                             self.automato.definir_estado_inicial(data['name'])
+                         if data['is_final']:
+                             self.automato.alternar_estado_final(data['name'])
+
+            # Processa as transições
+            for trans in transition_nodes:
+                from_name = id_to_name.get(trans.find("from").text)
+                to_name = id_to_name.get(trans.find("to").text)
+                if not from_name or not to_name:
+                    continue # Ignora transição inválida
+
+                if tipo_simulador in ["AFD", "AFN", "Moore"]:
+                    read_node = trans.find("read")
+                    simbolo = EPSILON if read_node is None or read_node.text is None else read_node.text
+                    self.automato.adicionar_transicao(from_name, simbolo, to_name)
+                
+                elif tipo_simulador == "AP":
+                    read_node = trans.find("read")
+                    pop_node = trans.find("pop")
+                    push_node = trans.find("push")
+                    
+                    s_in = EPSILON if read_node is None or read_node.text is None else read_node.text
+                    s_pop = EPSILON if pop_node is None or pop_node.text is None else pop_node.text
+                    s_push = EPSILON if push_node is None or push_node.text is None else push_node.text
+                    
+                    self.automato.adicionar_transicao(from_name, s_in, s_pop, to_name, s_push)
+                
+                elif tipo_simulador == "Mealy":
+                    read_node = trans.find("read")
+                    transout_node = trans.find("transout") # JFLAP usa 'transout'
+                    
+                    simbolo = EPSILON if read_node is None or read_node.text is None else read_node.text
+                    output = EPSILON if transout_node is None or transout_node.text is None else transout_node.text
+                    
+                    self.automato.adicionar_transicao(from_name, simbolo, to_name, output)
+
+                elif tipo_simulador == "Turing":
+                    read_node = trans.find("read")
+                    write_node = trans.find("write")
+                    move_node = trans.find("move")
+                    
+                    # JFLAP usa <read/> vazio para o símbolo branco
+                    simbolo_branco_auto = self.automato.simbolo_branco
+                    lido = simbolo_branco_auto if read_node is None or read_node.text is None else read_node.text
+                    escrito = simbolo_branco_auto if write_node is None or write_node.text is None else write_node.text
+                    direcao = move_node.text if move_node is not None else "R" # Padrão 'R'
+                    
+                    self.automato.adicionar_transicao(from_name, lido, to_name, escrito, direcao)
+
+            # 7. Redesenhar o canvas
+            self.zoom_slider.set(1.0) # Reseta o zoom para 100% ao abrir
+            self.desenhar_automato()
+            messagebox.showinfo("Importar JFF", f"Autômato carregado com sucesso de:\n{filepath}", parent=self.master)
+
+        except ET.ParseError:
+            messagebox.showerror("Erro ao Importar JFF", "O arquivo selecionado não é um XML válido.", parent=self.master)
+            self.limpar_tela() # Reseta em caso de erro
+        except Exception as e:
+            messagebox.showerror("Erro ao Importar JFF", f"Ocorreu um erro ao processar o arquivo:\n{e}", parent=self.master)
+            self.limpar_tela() # Reseta em caso de erro
+
+
     def exportar_para_jpg(self):
         """Salva a área atual do canvas como uma imagem JPG."""
         # Verifica se há algo para exportar
@@ -1006,7 +1416,7 @@ class TelaPrincipal:
             for name, estado in self.automato.estados.items():
                 state_id = state_to_id[name]
                 state_element = ET.SubElement(automaton_element, "state", id=state_id, name=name)
-                # Pega a posição do estado ou define uma padrão se não existir
+                # Pega a posição LÓGICA do estado ou define uma padrão se não existir
                 x_pos, y_pos = self.positions.get(name, (50.0 + int(state_id)*80, 50.0))
                 ET.SubElement(state_element, "x").text = str(float(x_pos))
                 ET.SubElement(state_element, "y").text = str(float(y_pos))
