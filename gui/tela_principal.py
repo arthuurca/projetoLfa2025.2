@@ -156,10 +156,10 @@ class TelaPrincipal:
         self.simulador = None
 
         # --- NOVAS VARIÁVEIS PARA SELEÇÃO MÚLTIPLA ---
-        self.selection_box_start = None # (x, y) visual coords for start of box
-        self.selection_box_id = None    # ID of the rectangle on canvas
-        self.selection_group = set()    # Set of state names being moved
-        self.drag_start_pos = None      # (x, y) visual coords for calculating drag delta
+        self.selection_box_start = None
+        self.selection_box_id = None   
+        self.selection_group = set()    
+        self.drag_start_pos = None     
 
         # --- Layout Principal ---
         self.master.grid_columnconfigure(0, weight=1)
@@ -192,7 +192,6 @@ class TelaPrincipal:
                                             command=self.toggle_theme, width=120,
                                             **self.style_top_widget)
         self.btn_theme_toggle.pack(side="left", padx=10)
-        # self.update_theme_button_text() # Removido, pois sync_theme() fará isso
         
         # --- NOVO BOTÃO DE ABRIR ---
         self.btn_open_jff = ctk.CTkButton(top_bar, text="📂 Abrir JFF",
@@ -340,11 +339,8 @@ class TelaPrincipal:
         self.set_active_mode("MOVER")
         self.btn_proximo_passo.configure(state="disabled")
         self._atualizar_widgets_extra_info()
-        
-        # Sincroniza o tema na inicialização
-        # self.toggle_theme() # <-- REMOVIDO
-        # self.toggle_theme() # <-- REMOVIDO
-        self.sync_theme() # <-- CORREÇÃO: Chama a nova função de sincronização
+
+        self.sync_theme()
 
 
     # --- NOVAS FUNÇÕES DE ZOOM ---

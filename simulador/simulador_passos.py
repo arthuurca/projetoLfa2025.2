@@ -18,7 +18,7 @@ class SimuladorPassos:
     def _criar_gerador(self):
         raise NotImplementedError("Subclasses devem implementar este método.")
 
-# --- Simulador AFD (CORRIGIDO para múltiplos caracteres) ---
+# --- Simulador AFD ---
 class SimuladorAFD(SimuladorPassos):
     def _criar_gerador(self):
         if not self.automato.estado_inicial:
@@ -72,7 +72,7 @@ class SimuladorAFD(SimuladorPassos):
             yield {"status": "rejeita", "mensagem": "Parou em estado não final.", "estado_atual": {estado_atual}, "cadeia_restante": ""}
 
 
-# --- Simulador AFN (CORRIGIDO para múltiplos caracteres) ---
+# --- Simulador AFN  ---
 class SimuladorAFN(SimuladorPassos):
     def _criar_gerador(self):
         if not self.automato.estado_inicial:
@@ -146,7 +146,7 @@ class SimuladorAFN(SimuladorPassos):
              yield {"status": "rejeita", "mensagem": f"Travou no processamento. Não foi possível consumir '{self.cadeia_original[indice_atual:]}'.", "estado_atual": estados_atuais, "cadeia_restante": self.cadeia_original[indice_atual:]}
 
 
-# --- Simulador AP (Sem mudança significativa necessária para esta correção) ---
+# --- Simulador AP  ---
 class SimuladorAP(SimuladorPassos):
     def _criar_gerador(self):
         # A lógica do AP já usa um índice (indice_cadeia) e pode potencialmente
@@ -258,7 +258,7 @@ class SimuladorAP(SimuladorPassos):
              # Se aceitou, o return dentro do loop já encerrou o gerador.
 
 
-# --- NOVOS SIMULADORES (Moore e Mealy adaptados para múltiplos caracteres) ---
+# --- NOVOS SIMULADORES ---
 
 class SimuladorMoore(SimuladorPassos):
     def _criar_gerador(self):
@@ -311,7 +311,6 @@ class SimuladorMoore(SimuladorPassos):
 
 class SimuladorMealy(SimuladorPassos):
      def _criar_gerador(self):
-        # Lógica adaptada similar ao AFD
         if not self.automato.estado_inicial:
             yield {"status": "erro", "mensagem": "Estado inicial não definido."}; return
 
@@ -356,7 +355,7 @@ class SimuladorMealy(SimuladorPassos):
 
         yield {"status": "finalizado", "mensagem": "Cadeia processada.", "output": output_str, "estado_atual": {estado_atual}, "cadeia_restante": ""}
 
-# --- Simulador MT (Não precisa de mudança para esta correção específica) ---
+# --- Simulador MT ---
 class SimuladorMT(SimuladorPassos):
     
     def _visualizar_fita(self, tape, head, window=20):
@@ -423,11 +422,6 @@ class SimuladorMT(SimuladorPassos):
                 
             estado_atual = prox_estado # Muda para o próximo estado
             
-            # Yield extra opcional para mostrar o estado *depois* da transição e movimento
-            # fita_str_apos = self._visualizar_fita(fita, cabecote)
-            # yield {"status": "executando", "estado_atual": {estado_atual}, "tape": fita_str_apos, "transicao_ativa": {(estado_origem, estado_atual)}}
-
-
         if steps >= max_steps:
             fita_str_final = self._visualizar_fita(fita, cabecote)
             yield {"status": "rejeita", "mensagem": "Simulação interrompida (limite de passos atingido).", "estado_atual": {estado_atual}, "tape": fita_str_final}
