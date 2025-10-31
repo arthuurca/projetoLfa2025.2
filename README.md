@@ -58,7 +58,6 @@ Para executar o projeto localmente, siga estes passos:
     ```
 
 3.  **Instale as dependências:**
-    (Nota: Você precisará criar um arquivo `requirements.txt` contendo `customtkinter` e `Pillow`).
     ```sh
     pip install -r requirements.txt
     ```
