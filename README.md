@@ -36,7 +36,7 @@ Este software permite que estudantes e entusiastas de teoria da computação des
 O código-fonte está organizado nos seguintes pacotes principais:
 
 * **`/automato`**: Contém as definições de classes e a lógica de dados para cada tipo de autômato (ex: `automato_finito.py`, `automato_pilha.py`).
-* **`/simulador`**: Contém a lógica de execução (os "motores") para cada tipo de simulação passo a passo (ex: `simulador_passos.py`).
+* **`/simulador`**: Contém a lógica de execução para cada tipo de simulação passo a passo (ex: `simulador_passos.py`).
 * **`/gui`**: Contém os arquivos da interface gráfica de usuário (GUI) construída com CustomTkinter (ex: `tela_principal.py`, `tela_menu.py`).
 * **`/assets`**: Contém recursos estáticos, como imagens e ícones.
 * **`main.py`**: Ponto de entrada principal da aplicação.
