@@ -12,13 +12,41 @@ class TelaMenu:
         self.frame_menu = ctk.CTkFrame(master, corner_radius=20, fg_color=("gray85", "gray20"))
         self.frame_menu.place(relx=0.5, rely=0.5, anchor="center")
 
+        # --- NOVO: Carregar e exibir o logo do simulador ---
+        try:
+            # Diretório onde este script (tela_menu.py) está localizado
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            # Navega um nível acima do diretório 'gui' para chegar à raiz do projeto
+            base_dir = os.path.dirname(script_dir) 
+            # Caminho para o logo.png
+            logo_path = os.path.join(base_dir, "assets", "images", "logo.png")
+
+            if not os.path.exists(logo_path):
+                 raise FileNotFoundError(f"Logo não encontrado em: {logo_path}")
+
+            logo_image = ctk.CTkImage(
+                light_image=Image.open(logo_path),
+                dark_image=Image.open(logo_path),
+                size=(200, 200) # Ajuste o tamanho conforme necessário
+            )
+            logo_label = ctk.CTkLabel(self.frame_menu, image=logo_image, text="")
+            # Adiciona padding acima do logo e um pouco abaixo
+            logo_label.pack(pady=(40, 10)) 
+
+        except Exception as e:
+            print(f"Erro ao carregar logo.png: {e}")
+            # Se falhar, apenas continua sem o logo
+            pass
+        # --- FIM NOVO ---
+
         # Título principal com estilo
         titulo = ctk.CTkLabel(
             self.frame_menu,
             text="Simulador de Autômatos do IC",
             font=ctk.CTkFont(size=30, weight="bold")
         )
-        titulo.pack(padx=70, pady=(50, 10))
+        # Padding ajustado (era 50, 10)
+        titulo.pack(padx=70, pady=(10, 10))
 
         # Subtítulo
         subtitulo = ctk.CTkLabel(
